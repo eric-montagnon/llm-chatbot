@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Generator, Generic, List, Optional, Tuple, TypeVar
+from typing import (TYPE_CHECKING, Dict, Generator, Generic, List, Optional,
+                    Sequence, Tuple, TypeVar)
 
 from .types import ChatMessage, RawResponse, RawStreamChunk
+
+if TYPE_CHECKING:
+    from modules.tools.registry import ToolRegistry
 
 # Generic type variable for the client
 ClientType = TypeVar('ClientType')
@@ -14,6 +18,11 @@ class LLMProvider(ABC, Generic[ClientType]):
         self.api_key = api_key
         self.default_model = default_model
         self._client: Optional[ClientType] = None
+        self.tool_registry: Optional["ToolRegistry"] = None
+    
+    def set_tool_registry(self, registry: "ToolRegistry"):
+        """Set the tool registry for this provider"""
+        self.tool_registry = registry
     
     @property
     def client(self) -> ClientType:
@@ -47,6 +56,14 @@ class LLMProvider(ABC, Generic[ClientType]):
         """Streaming completion with raw response chunks"""
         pass
     
-    def format_messages(self, messages: List[ChatMessage]) -> list[dict[str, str]]:
+    def format_messages(self, messages: List[ChatMessage]) -> Sequence[Dict[str, object]]:
         """Default message formatting - can be overridden"""
-        return [{"role": m.role, "content": m.content} for m in messages]
+        formatted: List[Dict[str, object]] = []
+        for m in messages:
+            msg_dict: Dict[str, object] = {"role": m.role, "content": m.content}
+            if m.tool_call_id:
+                msg_dict["tool_call_id"] = m.tool_call_id
+            if m.tool_calls:
+                msg_dict["tool_calls"] = m.tool_calls
+            formatted.append(msg_dict)
+        return formatted

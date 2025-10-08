@@ -17,6 +17,8 @@ class ChatMessage:
     """Represents a single chat message"""
     role: str
     content: str
+    tool_call_id: Optional[str] = None
+    tool_calls: Optional[List[Dict[str, object]]] = None
 
 
 # ============================================================================
@@ -83,6 +85,13 @@ class ChoiceInfo(TypedDict, total=False):
     logprobs: Union[LogProbInfo, SerializedDict, None]
 
 
+class ToolResultInfo(TypedDict):
+    """Tool execution result information"""
+    name: str
+    arguments: Dict[str, object]
+    result: str
+
+
 class RawResponse(TypedDict, total=False):
     """Raw API response structure"""
     id: Optional[str]
@@ -93,6 +102,7 @@ class RawResponse(TypedDict, total=False):
     usage: Optional[UsageInfo]
     system_fingerprint: Optional[str]
     impact: Optional[EcologicalImpact]
+    tool_results: Optional[List[ToolResultInfo]]
 
 
 # ============================================================================

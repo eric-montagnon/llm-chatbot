@@ -6,6 +6,8 @@ from modules.chat.types import (ChatMessage, CompleteInteraction, Interaction,
 from modules.config.settings import Config
 from modules.config.types import LLMProviderInstance
 from modules.providers.types import RawResponse, RawStreamChunk
+from modules.tools.builtin import register_builtin_tools
+from modules.tools.registry import ToolRegistry
 
 
 class ChatManager:
@@ -15,10 +17,17 @@ class ChatManager:
         self.messages: List[Dict[str, str]] = []
         self.raw_interactions: List[Interaction] = []  # Store raw requests and responses
         self._provider_cache: Dict[str, LLMProviderInstance] = {}
+        
+        # Initialize tool registry
+        self.tool_registry = ToolRegistry()
+        register_builtin_tools(self.tool_registry)
     
     def get_provider(self, provider_name: str) -> LLMProviderInstance:
         if provider_name not in self._provider_cache:
-            self._provider_cache[provider_name] = Config.get_provider(provider_name)
+            provider = Config.get_provider(provider_name)
+            # Set tool registry on provider
+            provider.set_tool_registry(self.tool_registry)
+            self._provider_cache[provider_name] = provider
         return self._provider_cache[provider_name]
     
     def add_message(self, role: str, content: str):
@@ -68,7 +77,12 @@ class ChatManager:
         stream: bool = True
     ) -> Union[str, Generator[str, None, None]]:
         provider = self.get_provider(provider_name)
-        chat_messages = [ChatMessage(**msg) for msg in self.messages]
+        chat_messages = [
+            ChatMessage(
+                role=msg["role"],
+                content=msg["content"]
+            ) for msg in self.messages
+        ]
         
         if stream:
             return provider.stream(chat_messages, model)
@@ -107,7 +121,12 @@ class ChatManager:
     ) -> Union[Tuple[str, RawResponse], Generator[Tuple[str, RawStreamChunk], None, None]]:
         """Generate response with raw data and timing information"""
         provider = self.get_provider(provider_name)
-        chat_messages = [ChatMessage(**msg) for msg in self.messages]
+        chat_messages = [
+            ChatMessage(
+                role=msg["role"],
+                content=msg["content"]
+            ) for msg in self.messages
+        ]
         
         # Create request data
         request_data: RequestData = {

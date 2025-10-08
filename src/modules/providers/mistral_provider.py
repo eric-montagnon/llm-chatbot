@@ -1,11 +1,12 @@
-from typing import Generator, List, Tuple
+from typing import Dict, Generator, List, Sequence, Tuple
 
 from ecologits import EcoLogits
 from mistralai import Mistral
 
 from .base import LLMProvider
 from .types import (ChatMessage, ChoiceInfo, EcologicalImpact, MessageContent,
-                    RawResponse, RawStreamChunk, StreamChoiceInfo, UsageInfo)
+                    RawResponse, RawStreamChunk, StreamChoiceInfo,
+                    ToolResultInfo, UsageInfo)
 
 
 class MistralProvider(LLMProvider[Mistral]):
@@ -19,16 +20,34 @@ class MistralProvider(LLMProvider[Mistral]):
         
         return Mistral(api_key=self.api_key)
     
+    def _format_for_mistral(self, messages: List[ChatMessage]) -> Sequence[Dict[str, object]]:
+        """Convert ChatMessage to Mistral's expected message format"""
+        result: List[Dict[str, object]] = []
+        
+        for msg in messages:
+            msg_dict: Dict[str, object] = {
+                "role": msg.role,
+                "content": msg.content
+            }
+            if msg.tool_call_id:
+                msg_dict["tool_call_id"] = msg.tool_call_id
+            if msg.tool_calls:
+                msg_dict["tool_calls"] = msg.tool_calls
+            result.append(msg_dict)
+        
+        return result
+    
     def _extract_impacts(self, response: object) -> EcologicalImpact:
         """Extract ecological impacts from response"""
         if hasattr(response, 'impacts'):
-            impacts = response.impacts  # type: ignore[attr-defined]
-            return {
-                "energy_kwh": impacts.energy.value,
-                "gwp_kgco2eq": impacts.gwp.value,
-                "adpe_kgsbeq": impacts.adpe.value,
-                "pe_mj": impacts.pe.value,
-            }
+            impacts_attr = getattr(response, 'impacts', None)
+            if impacts_attr is not None:
+                return {
+                    "energy_kwh": float(getattr(getattr(impacts_attr, 'energy', None), 'value', 0.0)),
+                    "gwp_kgco2eq": float(getattr(getattr(impacts_attr, 'gwp', None), 'value', 0.0)),
+                    "adpe_kgsbeq": float(getattr(getattr(impacts_attr, 'adpe', None), 'value', 0.0)),
+                    "pe_mj": float(getattr(getattr(impacts_attr, 'pe', None), 'value', 0.0)),
+                }
         # Return default values if no impacts available
         return {
             "energy_kwh": 0.0,
@@ -39,7 +58,7 @@ class MistralProvider(LLMProvider[Mistral]):
     
     def complete(self, messages: List[ChatMessage], model: str) -> str:
         """Non-streaming chat completion"""
-        formatted = self.format_messages(messages)
+        formatted = self._format_for_mistral(messages)
         response = self.client.chat.complete(
             model=model,
             messages=formatted  # type: ignore[arg-type]
@@ -53,7 +72,7 @@ class MistralProvider(LLMProvider[Mistral]):
     
     def stream(self, messages: List[ChatMessage], model: str) -> Generator[str, None, None]:
         """Streaming chat completion"""
-        formatted = self.format_messages(messages)
+        formatted = self._format_for_mistral(messages)
         stream = self.client.chat.stream(
             model=model,
             messages=formatted  # type: ignore[arg-type]
@@ -70,14 +89,27 @@ class MistralProvider(LLMProvider[Mistral]):
     
     def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, RawResponse]:
         """Non-streaming chat completion with raw response"""
-        formatted = self.format_messages(messages)
-        response = self.client.chat.complete(
-            model=model,
-            messages=formatted  # type: ignore[arg-type]
-        )
+        formatted = self._format_for_mistral(messages)
+        
+        # Prepare request kwargs
+        kwargs: Dict[str, object] = {
+            "model": model,
+            "messages": formatted
+        }
+        
+        # Add tools if registry is available
+        if self.tool_registry:
+            kwargs["tools"] = self.tool_registry.to_mistral_format()
+            kwargs["tool_choice"] = "auto"
+        
+        response = self.client.chat.complete(**kwargs)  # type: ignore[arg-type]
+        
+        # Check for tool calls
+        message = response.choices[0].message
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            return self._handle_tool_calls(messages, model, response)
         
         # Extract content
-        message = response.choices[0].message
         if isinstance(message, dict):
             content = message.get("content", "")
             content = content if isinstance(content, str) else ""
@@ -149,9 +181,168 @@ class MistralProvider(LLMProvider[Mistral]):
         
         return content, raw_response
     
+    def _handle_tool_calls(
+        self, 
+        messages: List[ChatMessage], 
+        model: str, 
+        response: object
+    ) -> Tuple[str, RawResponse]:
+        """Handle tool calls and execute them"""
+        import json
+        
+        if not self.tool_registry:
+            raise RuntimeError("Tool registry not set")
+        
+        # Extract message and tool calls - defensive access with getattr
+        choices = getattr(response, 'choices', None)
+        if not choices:
+            raise RuntimeError("Response has no choices")
+        
+        message = getattr(choices[0], 'message', None)
+        if message is None:
+            raise RuntimeError("Choice has no message")
+            
+        if not hasattr(message, 'tool_calls') or not message.tool_calls:
+            raise RuntimeError("Tool calls expected but not found")
+        
+        # Execute each tool call
+        tool_messages: List[ChatMessage] = []
+        tool_results: List[ToolResultInfo] = []
+        
+        for tool_call in message.tool_calls:
+            # Only handle function tool calls
+            if not hasattr(tool_call, 'function'):
+                continue
+            
+            function_obj = getattr(tool_call, 'function', None)
+            if function_obj is None:
+                continue
+                
+            function_name = str(getattr(function_obj, 'name', ''))
+            # Mistral arguments might be a dict or string
+            function_args_raw = getattr(function_obj, 'arguments', '{}')
+            if isinstance(function_args_raw, str):
+                function_args = json.loads(function_args_raw)
+            else:
+                function_args = function_args_raw
+            
+            # Execute the tool
+            result = self.tool_registry.execute_tool(function_name, function_args)
+            
+            # Store result for display
+            tool_results.append({
+                "name": function_name,
+                "arguments": function_args,
+                "result": str(result)
+            })
+            
+            # Add tool result message
+            tool_call_id = getattr(tool_call, 'id', '')
+            tool_messages.append(ChatMessage(
+                role="tool",
+                content=str(result),
+                tool_call_id=tool_call_id
+            ))
+        
+        # Make another call with tool results
+        tool_call_list: List[Dict[str, object]] = [
+            {
+                "id": getattr(tool_call, 'id', ''),
+                "type": "function",
+                "function": {
+                    "name": str(getattr(getattr(tool_call, 'function', None), 'name', '')),
+                    "arguments": getattr(getattr(tool_call, 'function', None), 'arguments', '{}')
+                }
+            } for tool_call in message.tool_calls
+            if hasattr(tool_call, 'function')
+        ]
+        
+        new_messages = messages + [
+            ChatMessage(
+                role="assistant",
+                content=getattr(message, "content", "") or "",
+                tool_calls=tool_call_list
+            )
+        ] + tool_messages
+        
+        formatted = self._format_for_mistral(new_messages)
+        
+        final_response = self.client.chat.complete(
+            model=model,
+            messages=formatted  # type: ignore[arg-type]
+        )
+        
+        # Extract content from final response
+        final_message = final_response.choices[0].message
+        if isinstance(final_message, dict):
+            content = final_message.get("content", "")
+            content = content if isinstance(content, str) else ""
+        else:
+            content = getattr(final_message, "content", None)
+            content = content if isinstance(content, str) else ""
+        
+        # Build raw response
+        raw_response: RawResponse = {
+            "id": getattr(final_response, "id", None),
+            "object": getattr(final_response, "object", "chat.completion"),
+            "created": getattr(final_response, "created", None),
+            "model": getattr(final_response, "model", model),
+            "choices": [],
+        }
+        
+        # Add choices
+        choices_list: List[ChoiceInfo] = []
+        if hasattr(final_response, "choices") and final_response.choices:
+            for choice in final_response.choices:
+                msg = choice.message
+                msg_content: MessageContent = {}
+                
+                if isinstance(msg, dict):
+                    msg_content["role"] = msg.get("role", "assistant")
+                    msg_content["content"] = msg.get("content")
+                else:
+                    msg_content["role"] = getattr(msg, "role", "assistant")
+                    msg_content["content"] = getattr(msg, "content", None)
+                
+                choice_info: ChoiceInfo = {
+                    "index": getattr(choice, "index", 0),
+                    "message": msg_content,
+                    "finish_reason": getattr(choice, "finish_reason", None),
+                }
+                choices_list.append(choice_info)
+        
+        raw_response["choices"] = choices_list
+        
+        # Add usage if available
+        if hasattr(final_response, "usage"):
+            usage = final_response.usage
+            if isinstance(usage, dict):
+                usage_info: UsageInfo = {
+                    "prompt_tokens": usage.get("prompt_tokens"),
+                    "completion_tokens": usage.get("completion_tokens"),
+                    "total_tokens": usage.get("total_tokens")
+                }
+                raw_response["usage"] = usage_info
+            else:
+                usage_info = {
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                    "total_tokens": getattr(usage, "total_tokens", None)
+                }
+                raw_response["usage"] = usage_info
+        
+        # Add ecological impact if available
+        if hasattr(final_response, 'impacts'):
+            raw_response["impact"] = self._extract_impacts(final_response)
+        
+        # Add tool execution info
+        raw_response["tool_results"] = tool_results
+        
+        return content, raw_response
+    
     def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, RawStreamChunk], None, None]:
         """Streaming chat completion with raw chunks"""
-        formatted = self.format_messages(messages)
+        formatted = self._format_for_mistral(messages)
         stream = self.client.chat.stream(
             model=model,
             messages=formatted  # type: ignore[arg-type]
