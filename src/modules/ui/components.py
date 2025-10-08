@@ -4,6 +4,7 @@ from typing import Generator, List, Tuple
 import streamlit as st
 
 from modules.chat.types import Interaction
+from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
 
 
@@ -23,13 +24,30 @@ class Sidebar:
                 help="Select the LLM provider to use"
             )
             
-            # Model selection
+            # Model selection - dropdown with available models
+            available_models = PricingCalculator.get_available_models(provider)
             default_model = Config.get_default_model(provider)
-            model = st.text_input(
-                "Model", 
-                value=default_model,
-                help="Enter the model name (e.g., gpt-4, claude-3)"
-            )
+            
+            if available_models:
+                # If we have models in the pricing list, use selectbox
+                if default_model in available_models:
+                    default_index = available_models.index(default_model)
+                else:
+                    default_index = 0
+                
+                model = st.selectbox(
+                    "Model",
+                    options=available_models,
+                    index=default_index,
+                    help="Select the model to use"
+                )
+            else:
+                # Fallback to text input if no models are available
+                model = st.text_input(
+                    "Model", 
+                    value=default_model,
+                    help="Enter the model name (e.g., gpt-4, claude-3)"
+                )
             
             # System prompt
             system_prompt = st.text_area(
@@ -116,7 +134,7 @@ class RawMessageViewer:
     @staticmethod
     def _display_requests(interactions: List[Interaction]):
         """Display request details"""
-        st.subheader("📤 Request Messages to LLM")
+        st.subheader("📤 Raw details")
         
         if not interactions:
             st.write("No requests to display")
@@ -151,6 +169,9 @@ class RawMessageViewer:
         with col3:
             st.write(f"**Stream:** {request['stream']}")
         
+        # Display token usage if available
+        RawMessageViewer._display_token_usage(interaction)
+        
         # Display messages
         st.write("### Messages Sent")
         messages = request["messages"]
@@ -171,6 +192,87 @@ class RawMessageViewer:
         # Raw JSON view
         with st.expander("📄 Raw Request JSON", expanded=False):
             st.json(request)
+    
+    @staticmethod
+    def _display_token_usage(interaction: Interaction):
+        """Display token usage information if available"""
+        if interaction["type"] == "complete":
+            response = interaction["response"]
+            raw = response.get("raw")
+            
+            if raw and "usage" in raw:
+                usage = raw["usage"]
+                if usage:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    prompt_tokens = usage.get("prompt_tokens")
+                    completion_tokens = usage.get("completion_tokens")
+                    total_tokens = usage.get("total_tokens")
+                    
+                    with col1:
+                        if prompt_tokens is not None:
+                            st.metric("Input Tokens", f"{prompt_tokens:,}")
+                        else:
+                            st.metric("Input Tokens", "N/A")
+                    
+                    with col2:
+                        if completion_tokens is not None:
+                            st.metric("Output Tokens", f"{completion_tokens:,}")
+                        else:
+                            st.metric("Output Tokens", "N/A")
+                    
+                    with col3:
+                        if total_tokens is not None:
+                            st.metric("Total Tokens", f"{total_tokens:,}")
+                        else:
+                            st.metric("Total Tokens", "N/A")
+                    
+                    # Display cost if pricing information is available
+                    if prompt_tokens is not None and completion_tokens is not None:
+                        request = interaction["request"]
+                        provider = request["provider"]
+                        model = request["model"]
+                        
+                        pricing_info = PricingCalculator.get_model_pricing(provider, model)
+                        
+                        if pricing_info is not None:
+                            cost = PricingCalculator.calculate_cost(
+                                provider=provider,
+                                model=model,
+                                input_tokens=prompt_tokens,
+                                output_tokens=completion_tokens
+                            )
+                            
+                            if cost is not None:
+                                col1, col2, col3 = st.columns(3)
+                                
+                                with col1:
+                                    input_cost = (prompt_tokens / 1_000_000) * pricing_info["input_price"]
+                                    st.metric(
+                                        "Input Cost",
+                                        PricingCalculator.format_cost(input_cost),
+                                        help=f"${pricing_info['input_price']}/1M tokens"
+                                    )
+                                
+                                with col2:
+                                    output_cost = (completion_tokens / 1_000_000) * pricing_info["output_price"]
+                                    st.metric(
+                                        "Output Cost",
+                                        PricingCalculator.format_cost(output_cost),
+                                        help=f"${pricing_info['output_price']}/1M tokens"
+                                    )
+                                
+                                with col3:
+                                    st.metric(
+                                        "Total Cost",
+                                        PricingCalculator.format_cost(cost),
+                                        help="Sum of input and output costs"
+                                    )
+                        else:
+                            st.info(f"ℹ️ Pricing information not available for model: {model}")
+        elif interaction["type"] == "streaming":
+            # For streaming, we don't have usage info typically
+            st.info("ℹ️ Token usage information is not available for streaming responses")
     
     @staticmethod
     def display_streaming_status(chunk_count: int):
