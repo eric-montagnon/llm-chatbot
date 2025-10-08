@@ -133,3 +133,4 @@ class RawStreamChunk(TypedDict, total=False):
     model: str
     choices: Sequence[StreamChoiceInfo]
     system_fingerprint: Optional[str]
+    tool_results: Optional[List[ToolResultInfo]]

@@ -43,16 +43,16 @@ class OpenAIProvider(LLMProvider[OpenAI]):
                 result.append(tool_msg)
             elif msg.tool_calls:
                 # Assistant message with tool calls - needs special handling
-                # Since tool_calls might not match the expected type exactly, we construct carefully
-                asst_msg: ChatCompletionAssistantMessageParam = {
+                # Build the message dict directly to bypass strict typing
+                asst_msg_dict: Dict[str, object] = {
                     "role": "assistant",
+                    "tool_calls": msg.tool_calls
                 }
+                # Only add content if it's not None/empty - OpenAI allows omitting content for tool calls
                 if msg.content:
-                    asst_msg["content"] = msg.content
-                # Note: tool_calls from our ChatMessage is List[Dict[str, object]]
-                # which doesn't match OpenAI's expected type exactly.
-                # We'll need to handle this without the tool_calls for now
-                result.append(asst_msg)
+                    asst_msg_dict["content"] = msg.content
+                # Cast to the expected type (the runtime structure is correct)
+                result.append(asst_msg_dict)  # type: ignore[arg-type]
             elif msg.role == "system":
                 sys_msg: ChatCompletionSystemMessageParam = {
                     "role": "system",
@@ -125,11 +125,25 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             # ecologits adds impacts dynamically, we need to access it carefully
             impacts_attr = getattr(response, 'impacts', None)
             if impacts_attr is not None:
+                # Helper function to extract float from impact value
+                def extract_value(impact_obj: object) -> float:
+                    """Extract float value from impact object, handling RangeValue"""
+                    if impact_obj is None:
+                        return 0.0
+                    value = getattr(impact_obj, 'value', 0.0)
+                    # Value can be int, float, or RangeValue
+                    if isinstance(value, (int, float)):
+                        return float(value)
+                    # RangeValue has .mean property
+                    if hasattr(value, 'mean'):
+                        return float(getattr(value, 'mean', 0.0))
+                    return 0.0
+                
                 return {
-                    "energy_kwh": float(getattr(impacts_attr.energy, 'value', 0.0)),
-                    "gwp_kgco2eq": float(getattr(impacts_attr.gwp, 'value', 0.0)),
-                    "adpe_kgsbeq": float(getattr(impacts_attr.adpe, 'value', 0.0)),
-                    "pe_mj": float(getattr(impacts_attr.pe, 'value', 0.0)),
+                    "energy_kwh": extract_value(getattr(impacts_attr, 'energy', None)),
+                    "gwp_kgco2eq": extract_value(getattr(impacts_attr, 'gwp', None)),
+                    "adpe_kgsbeq": extract_value(getattr(impacts_attr, 'adpe', None)),
+                    "pe_mj": extract_value(getattr(impacts_attr, 'pe', None)),
                 }
         # Return default values if no impacts available
         return {
@@ -330,19 +344,71 @@ class OpenAIProvider(LLMProvider[OpenAI]):
     
     def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, RawStreamChunk], None, None]:
         """Streaming chat completion with raw chunks"""
+        import json
+        from collections import defaultdict
+        
         formatted = self._format_for_openai(messages)
-        stream_response = self.client.chat.completions.create(
-            model=model,
-            messages=formatted,
-            stream=True
-        )
+        
+        # Check if we have tools to add
+        if self.tool_registry:
+            tools_list = self._convert_tools_to_openai()
+            stream_response = self.client.chat.completions.create(
+                model=model,
+                messages=formatted,
+                stream=True,
+                tools=tools_list,
+                tool_choice="auto"
+            )
+        else:
+            stream_response = self.client.chat.completions.create(
+                model=model,
+                messages=formatted,
+                stream=True
+            )
         # Type narrowing: stream=True guarantees Stream
         assert not isinstance(stream_response, ChatCompletion)
         
+        # Track tool calls being accumulated
+        tool_calls_map: Dict[int, Dict[str, object]] = defaultdict(dict)
+        has_tool_calls = False
+        assistant_message_content = ""
+        
         for event in stream_response:
             content = ""
-            if event.choices and len(event.choices) > 0 and event.choices[0].delta.content:
-                content = event.choices[0].delta.content
+            if event.choices and len(event.choices) > 0:
+                delta = event.choices[0].delta
+                
+                # Check for content
+                if delta.content:
+                    content = delta.content
+                    assistant_message_content += content
+                
+                # Check for tool calls in delta
+                if delta.tool_calls:
+                    has_tool_calls = True
+                    for tc_delta in delta.tool_calls:
+                        tc_index = tc_delta.index
+                        # Initialize tool call if not exists
+                        if tc_index not in tool_calls_map:
+                            tool_calls_map[tc_index] = {
+                                "id": "",
+                                "type": "function",
+                                "function": {
+                                    "name": "",
+                                    "arguments": ""
+                                }
+                            }
+                        
+                        # Accumulate tool call data
+                        if tc_delta.id:
+                            tool_calls_map[tc_index]["id"] = tc_delta.id
+                        if tc_delta.type:
+                            tool_calls_map[tc_index]["type"] = tc_delta.type
+                        if tc_delta.function:
+                            if tc_delta.function.name:
+                                tool_calls_map[tc_index]["function"]["name"] = tc_delta.function.name  # type: ignore[index]
+                            if tc_delta.function.arguments:
+                                tool_calls_map[tc_index]["function"]["arguments"] += tc_delta.function.arguments  # type: ignore[index,operator]
             
             # Convert chunk to dict
             raw_chunk: RawStreamChunk = {
@@ -368,3 +434,97 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             }
             
             yield content, raw_chunk
+        
+        # After streaming completes, handle tool calls if any
+        if has_tool_calls and self.tool_registry and tool_calls_map:
+            # Execute tools and continue streaming the response
+            tool_messages: List[ChatMessage] = []
+            tool_results: List[ToolResultInfo] = []
+            
+            # Convert accumulated tool calls to list
+            tool_calls_list = [tool_calls_map[i] for i in sorted(tool_calls_map.keys())]
+            
+            for tool_call in tool_calls_list:
+                func_info = tool_call.get("function", {})
+                if isinstance(func_info, dict):
+                    function_name = str(func_info.get("name", ""))
+                    function_args_str = str(func_info.get("arguments", "{}"))
+                    
+                    try:
+                        function_args = json.loads(function_args_str)
+                        
+                        # Execute the tool
+                        result = self.tool_registry.execute_tool(function_name, function_args)
+                        
+                        # Store result for display
+                        tool_results.append({
+                            "name": function_name,
+                            "arguments": function_args,
+                            "result": str(result)
+                        })
+                        
+                        # Add tool result message
+                        tool_messages.append(ChatMessage(
+                            role="tool",
+                            content=str(result),
+                            tool_call_id=str(tool_call.get("id", ""))
+                        ))
+                    except (json.JSONDecodeError, Exception) as e:
+                        # Handle errors gracefully
+                        tool_messages.append(ChatMessage(
+                            role="tool",
+                            content=f"Error executing tool: {str(e)}",
+                            tool_call_id=str(tool_call.get("id", ""))
+                        ))
+            
+            # Add assistant message with tool calls and tool results to conversation
+            new_messages = messages + [
+                ChatMessage(
+                    role="assistant",
+                    content=assistant_message_content,
+                    tool_calls=tool_calls_list
+                )
+            ] + tool_messages
+            
+            # Make another streaming call with tool results
+            formatted_with_tools = self._format_for_openai(new_messages)
+            final_stream = self.client.chat.completions.create(
+                model=model,
+                messages=formatted_with_tools,
+                stream=True
+            )
+            assert not isinstance(final_stream, ChatCompletion)
+            
+            for event in final_stream:
+                content = ""
+                if event.choices and len(event.choices) > 0 and event.choices[0].delta.content:
+                    content = event.choices[0].delta.content
+                
+                raw_chunk_final: RawStreamChunk = {
+                    "id": event.id,
+                    "object": event.object,
+                    "created": event.created,
+                    "model": event.model,
+                    "choices": [
+                        {
+                            "index": choice.index,
+                            "delta": {
+                                "role": choice.delta.role,
+                                "content": choice.delta.content,
+                                "function_call": choice.delta.function_call.model_dump() if choice.delta.function_call else None,
+                                "tool_calls": [tc.model_dump() for tc in choice.delta.tool_calls] if choice.delta.tool_calls else None,
+                            } if choice.delta else {},
+                            "finish_reason": choice.finish_reason,
+                            "logprobs": choice.logprobs.model_dump() if choice.logprobs else None,
+                        }
+                        for choice in event.choices
+                    ] if event.choices else [],
+                    "system_fingerprint": event.system_fingerprint,
+                }
+                
+                # Add tool results info to the first chunk
+                if tool_results and event.choices and event.choices[0].delta.content:
+                    raw_chunk_final["tool_results"] = tool_results
+                    tool_results = []  # Clear so we don't add again
+                
+                yield content, raw_chunk_final

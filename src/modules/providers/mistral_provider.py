@@ -27,10 +27,16 @@ class MistralProvider(LLMProvider[Mistral]):
         for msg in messages:
             msg_dict: Dict[str, object] = {
                 "role": msg.role,
-                "content": msg.content
             }
+            # Only add content if it's not empty - particularly important for assistant messages with tool calls
+            if msg.content:
+                msg_dict["content"] = msg.content
+            
             if msg.tool_call_id:
                 msg_dict["tool_call_id"] = msg.tool_call_id
+                # Tool messages always need content
+                if not msg.content:
+                    msg_dict["content"] = ""
             if msg.tool_calls:
                 msg_dict["tool_calls"] = msg.tool_calls
             result.append(msg_dict)
@@ -42,11 +48,25 @@ class MistralProvider(LLMProvider[Mistral]):
         if hasattr(response, 'impacts'):
             impacts_attr = getattr(response, 'impacts', None)
             if impacts_attr is not None:
+                # Helper function to extract float from impact value
+                def extract_value(impact_obj: object) -> float:
+                    """Extract float value from impact object, handling RangeValue"""
+                    if impact_obj is None:
+                        return 0.0
+                    value = getattr(impact_obj, 'value', 0.0)
+                    # Value can be int, float, or RangeValue
+                    if isinstance(value, (int, float)):
+                        return float(value)
+                    # RangeValue has .mean property
+                    if hasattr(value, 'mean'):
+                        return float(getattr(value, 'mean', 0.0))
+                    return 0.0
+                
                 return {
-                    "energy_kwh": float(getattr(getattr(impacts_attr, 'energy', None), 'value', 0.0)),
-                    "gwp_kgco2eq": float(getattr(getattr(impacts_attr, 'gwp', None), 'value', 0.0)),
-                    "adpe_kgsbeq": float(getattr(getattr(impacts_attr, 'adpe', None), 'value', 0.0)),
-                    "pe_mj": float(getattr(getattr(impacts_attr, 'pe', None), 'value', 0.0)),
+                    "energy_kwh": extract_value(getattr(impacts_attr, 'energy', None)),
+                    "gwp_kgco2eq": extract_value(getattr(impacts_attr, 'gwp', None)),
+                    "adpe_kgsbeq": extract_value(getattr(impacts_attr, 'adpe', None)),
+                    "pe_mj": extract_value(getattr(impacts_attr, 'pe', None)),
                 }
         # Return default values if no impacts available
         return {
@@ -312,10 +332,19 @@ class MistralProvider(LLMProvider[Mistral]):
     def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, RawStreamChunk], None, None]:
         """Streaming chat completion with raw chunks"""
         formatted = self._format_for_mistral(messages)
-        stream = self.client.chat.stream(
-            model=model,
-            messages=formatted  # type: ignore[arg-type]
-        )
+        
+        # Prepare request kwargs
+        kwargs: Dict[str, object] = {
+            "model": model,
+            "messages": formatted
+        }
+        
+        # Add tools if registry is available
+        if self.tool_registry:
+            kwargs["tools"] = self.tool_registry.to_mistral_format()
+            kwargs["tool_choice"] = "auto"
+        
+        stream = self.client.chat.stream(**kwargs)  # type: ignore[arg-type]
         
         for event in stream:
             content = ""
@@ -365,3 +394,7 @@ class MistralProvider(LLMProvider[Mistral]):
             
             if content:
                 yield content, raw_chunk
+        
+        # Note: Mistral streaming with tool calls may require different handling
+        # Tool calls in streaming mode are passed through in the chunks but not automatically executed
+        # This is a known limitation that would require accumulating and processing tool call deltas
