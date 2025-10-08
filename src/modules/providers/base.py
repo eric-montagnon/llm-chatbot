@@ -37,16 +37,6 @@ class LLMProvider(ABC, Generic[ClientType]):
         pass
     
     @abstractmethod
-    def complete(self, messages: List[ChatMessage], model: str) -> str:
-        """Non-streaming completion"""
-        pass
-    
-    @abstractmethod
-    def stream(self, messages: List[ChatMessage], model: str) -> Generator[str, None, None]:
-        """Streaming completion"""
-        pass
-    
-    @abstractmethod
     def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, RawResponse]:
         """Non-streaming completion with raw response"""
         pass

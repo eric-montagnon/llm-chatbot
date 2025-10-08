@@ -56,37 +56,6 @@ class MistralProvider(LLMProvider[Mistral]):
             "pe_mj": 0.0,
         }
     
-    def complete(self, messages: List[ChatMessage], model: str) -> str:
-        """Non-streaming chat completion"""
-        formatted = self._format_for_mistral(messages)
-        response = self.client.chat.complete(
-            model=model,
-            messages=formatted  # type: ignore[arg-type]
-        )
-        message = response.choices[0].message
-        if isinstance(message, dict):
-            content = message.get("content", "")
-            return content if isinstance(content, str) else ""
-        content = getattr(message, "content", None)
-        return content if isinstance(content, str) else ""
-    
-    def stream(self, messages: List[ChatMessage], model: str) -> Generator[str, None, None]:
-        """Streaming chat completion"""
-        formatted = self._format_for_mistral(messages)
-        stream = self.client.chat.stream(
-            model=model,
-            messages=formatted  # type: ignore[arg-type]
-        )
-        for event in stream:
-            if hasattr(event, "data") and event.data and event.data.choices:
-                delta = event.data.choices[0].delta
-                if isinstance(delta, dict):
-                    content = delta.get("content")
-                else:
-                    content = getattr(delta, "content", None)
-                if content:
-                    yield content
-    
     def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, RawResponse]:
         """Non-streaming chat completion with raw response"""
         formatted = self._format_for_mistral(messages)

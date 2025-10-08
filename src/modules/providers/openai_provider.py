@@ -139,32 +139,6 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             "pe_mj": 0.0,
         }
     
-    def complete(self, messages: List[ChatMessage], model: str) -> str:
-        """Non-streaming chat completion"""
-        formatted = self._format_for_openai(messages)
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=formatted,
-            stream=False
-        )
-        # Type narrowing: stream=False guarantees ChatCompletion
-        assert isinstance(response, ChatCompletion)
-        return response.choices[0].message.content or ""
-    
-    def stream(self, messages: List[ChatMessage], model: str) -> Generator[str, None, None]:
-        """Streaming chat completion"""
-        formatted = self._format_for_openai(messages)
-        stream_response = self.client.chat.completions.create(
-            model=model,
-            messages=formatted,
-            stream=True
-        )
-        # Type narrowing: stream=True guarantees Stream
-        assert not isinstance(stream_response, ChatCompletion)
-        for event in stream_response:
-            if event.choices[0].delta.content:
-                yield event.choices[0].delta.content
-    
     def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, RawResponse]:
         """Non-streaming chat completion with raw response"""
         formatted = self._format_for_openai(messages)

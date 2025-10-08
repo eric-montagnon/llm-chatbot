@@ -54,41 +54,6 @@ class ChatManager:
     def get_display_messages(self) -> List[Dict[str, str]]:
         return [msg for msg in self.messages if msg["role"] != "system"]
     
-    @overload
-    def generate_response(
-        self, 
-        provider_name: str, 
-        model: str, 
-        stream: Literal[True]
-    ) -> Generator[str, None, None]: ...
-    
-    @overload
-    def generate_response(
-        self, 
-        provider_name: str, 
-        model: str, 
-        stream: Literal[False]
-    ) -> str: ...
-    
-    def generate_response(
-        self, 
-        provider_name: str, 
-        model: str, 
-        stream: bool = True
-    ) -> Union[str, Generator[str, None, None]]:
-        provider = self.get_provider(provider_name)
-        chat_messages = [
-            ChatMessage(
-                role=msg["role"],
-                content=msg["content"]
-            ) for msg in self.messages
-        ]
-        
-        if stream:
-            return provider.stream(chat_messages, model)
-        else:
-            return provider.complete(chat_messages, model)
-    
     def add_raw_interaction(self, interaction: Interaction):
         """Add a raw interaction (request/response pair) to history"""
         self.raw_interactions.append(interaction)
