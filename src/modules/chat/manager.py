@@ -1,11 +1,11 @@
 import time
 from typing import Dict, Generator, List, Literal, Tuple, Union, overload
 
-from chat_types import (ChatMessage, CompleteInteraction, Interaction,
-                        RequestData, StreamingInteraction)
-from config import Config
-from core_types import LLMProviderInstance
-from providers.types import RawResponse, RawStreamChunk
+from modules.chat.types import (ChatMessage, CompleteInteraction, Interaction,
+                                RequestData, StreamingInteraction)
+from modules.config.settings import Config
+from modules.config.types import LLMProviderInstance
+from modules.providers.types import RawResponse, RawStreamChunk
 
 
 class ChatManager:

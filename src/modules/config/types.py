@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Union
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from providers.mistral_provider import MistralProvider
-    from providers.openai_provider import OpenAIProvider
+    from modules.providers.mistral_provider import MistralProvider
+    from modules.providers.openai_provider import OpenAIProvider
 
 
 # ============================================================================

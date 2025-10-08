@@ -7,7 +7,7 @@ between the user and LLM providers.
 
 from typing import Dict, List, Literal, TypedDict, Union
 
-from providers.types import ChatMessage, RawResponse, RawStreamChunk
+from modules.providers.types import ChatMessage, RawResponse, RawStreamChunk
 
 # Re-export ChatMessage for convenience
 __all__ = [

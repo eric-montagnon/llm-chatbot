@@ -4,8 +4,8 @@ from typing import Dict, Type
 
 from dotenv import load_dotenv
 
-from core_types import LLMProviderInstance
-from providers import MistralProvider, OpenAIProvider
+from modules.config.types import LLMProviderInstance
+from modules.providers import MistralProvider, OpenAIProvider
 
 load_dotenv()
 

@@ -1,8 +1,8 @@
 import streamlit as st
 
-from chat_manager import ChatManager
-from config import Config
-from ui_components import ChatUI, RawMessageViewer, Sidebar
+from modules.chat import ChatManager
+from modules.config import Config
+from modules.ui import ChatUI, RawMessageViewer, Sidebar
 
 st.set_page_config(
     page_title="LLM Chatbot with Raw View", 

@@ -3,8 +3,8 @@ from typing import Generator, List, Tuple
 
 import streamlit as st
 
-from chat_types import Interaction
-from config import Config
+from modules.chat.types import Interaction
+from modules.config.settings import Config
 
 
 class Sidebar:
