@@ -1,9 +1,9 @@
-from typing import Any, Dict, Generator, List, Tuple, cast
+from typing import Generator, List, Tuple
 
-from openai import OpenAI, Stream
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
+from openai import OpenAI
+from openai.types.chat import ChatCompletion
 
-from .base import ChatMessage, LLMProvider
+from .base import ChatMessage, LLMProvider, RawResponse, RawStreamChunk
 
 
 class OpenAIProvider(LLMProvider[OpenAI]):
@@ -22,9 +22,8 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             messages=formatted,  # type: ignore[arg-type]
             stream=False
         )
-        # Cast to ChatCompletion since stream=False guarantees non-streaming response
-        # This narrows the Union[ChatCompletion, Stream[ChatCompletionChunk]] type
-        response = cast(ChatCompletion, response)
+        # Type narrowing: stream=False guarantees ChatCompletion
+        assert isinstance(response, ChatCompletion)
         return response.choices[0].message.content or ""
     
     def stream(self, messages: List[ChatMessage], model: str) -> Generator[str, None, None]:
@@ -35,14 +34,13 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             messages=formatted,  # type: ignore[arg-type]
             stream=True
         )
-        # Cast to Stream since stream=True guarantees streaming response
-        # This narrows the Union[ChatCompletion, Stream[ChatCompletionChunk]] type
-        stream_response = cast(Stream[ChatCompletionChunk], stream_response)
+        # Type narrowing: stream=True guarantees Stream
+        assert not isinstance(stream_response, ChatCompletion)
         for event in stream_response:
             if event.choices[0].delta.content:
                 yield event.choices[0].delta.content
     
-    def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, Dict[str, Any]]:
+    def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, RawResponse]:
         """Non-streaming chat completion with raw response"""
         formatted = self.format_messages(messages)
         response = self.client.chat.completions.create(
@@ -50,11 +48,12 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             messages=formatted,  # type: ignore[arg-type]
             stream=False
         )
-        response = cast(ChatCompletion, response)
+        # Type narrowing: stream=False guarantees ChatCompletion
+        assert isinstance(response, ChatCompletion)
         content = response.choices[0].message.content or ""
         
         # Convert response to dict for JSON serialization
-        raw_response = {
+        raw_response: RawResponse = {
             "id": response.id,
             "object": response.object,
             "created": response.created,
@@ -69,7 +68,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
                         "tool_calls": [tc.model_dump() for tc in choice.message.tool_calls] if choice.message.tool_calls else None,
                     },
                     "finish_reason": choice.finish_reason,
-                    "logprobs": choice.logprobs,
+                    "logprobs": choice.logprobs.model_dump() if choice.logprobs else None,
                 }
                 for choice in response.choices
             ],
@@ -83,7 +82,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
         
         return content, raw_response
     
-    def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, Dict[str, Any]], None, None]:
+    def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, RawStreamChunk], None, None]:
         """Streaming chat completion with raw chunks"""
         formatted = self.format_messages(messages)
         stream_response = self.client.chat.completions.create(
@@ -91,7 +90,8 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             messages=formatted,  # type: ignore[arg-type]
             stream=True
         )
-        stream_response = cast(Stream[ChatCompletionChunk], stream_response)
+        # Type narrowing: stream=True guarantees Stream
+        assert not isinstance(stream_response, ChatCompletion)
         
         for event in stream_response:
             content = ""
@@ -99,7 +99,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
                 content = event.choices[0].delta.content
             
             # Convert chunk to dict
-            raw_chunk = {
+            raw_chunk: RawStreamChunk = {
                 "id": event.id,
                 "object": event.object,
                 "created": event.created,
@@ -114,7 +114,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
                             "tool_calls": [tc.model_dump() for tc in choice.delta.tool_calls] if choice.delta.tool_calls else None,
                         } if choice.delta else {},
                         "finish_reason": choice.finish_reason,
-                        "logprobs": choice.logprobs,
+                        "logprobs": choice.logprobs.model_dump() if choice.logprobs else None,
                     }
                     for choice in event.choices
                 ] if event.choices else [],

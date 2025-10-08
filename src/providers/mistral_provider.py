@@ -1,8 +1,9 @@
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Generator, List, Tuple
 
 from mistralai import Mistral
 
-from .base import ChatMessage, LLMProvider
+from .base import (ChatMessage, ChoiceInfo, LLMProvider, MessageContent,
+                   RawResponse, RawStreamChunk, StreamChoiceInfo, UsageInfo)
 
 
 class MistralProvider(LLMProvider[Mistral]):
@@ -43,7 +44,7 @@ class MistralProvider(LLMProvider[Mistral]):
                 if content:
                     yield content
     
-    def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, Dict[str, Any]]:
+    def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, RawResponse]:
         """Non-streaming chat completion with raw response"""
         formatted = self.format_messages(messages)
         response = self.client.chat.complete(
@@ -61,19 +62,19 @@ class MistralProvider(LLMProvider[Mistral]):
             content = content if isinstance(content, str) else ""
         
         # Build raw response dict
-        raw_response = {
+        raw_response: RawResponse = {
             "id": getattr(response, "id", None),
             "object": getattr(response, "object", "chat.completion"),
             "created": getattr(response, "created", None),
             "model": getattr(response, "model", model),
             "choices": [],
-            "usage": None
         }
         
         # Add choices
+        choices_list: List[ChoiceInfo] = []
         if hasattr(response, "choices") and response.choices:
             for choice in response.choices:
-                choice_dict = {
+                choice_dict: ChoiceInfo = {
                     "index": getattr(choice, "index", 0),
                     "message": {},
                     "finish_reason": getattr(choice, "finish_reason", None)
@@ -81,31 +82,46 @@ class MistralProvider(LLMProvider[Mistral]):
                 
                 # Extract message content
                 msg = choice.message if hasattr(choice, "message") else choice
+                msg_content: MessageContent
                 if isinstance(msg, dict):
-                    choice_dict["message"] = msg
+                    msg_content = {
+                        "role": msg.get("role"),
+                        "content": msg.get("content"),
+                        "function_call": msg.get("function_call"),
+                        "tool_calls": msg.get("tool_calls"),
+                    }
                 else:
-                    choice_dict["message"] = {
+                    msg_content = {
                         "role": getattr(msg, "role", "assistant"),
                         "content": getattr(msg, "content", "")
                     }
+                choice_dict["message"] = msg_content
                 
-                raw_response["choices"].append(choice_dict)
+                choices_list.append(choice_dict)
+        
+        raw_response["choices"] = choices_list
         
         # Add usage if available
         if hasattr(response, "usage"):
             usage = response.usage
             if isinstance(usage, dict):
-                raw_response["usage"] = usage
+                usage_info: UsageInfo = {
+                    "prompt_tokens": usage.get("prompt_tokens"),
+                    "completion_tokens": usage.get("completion_tokens"),
+                    "total_tokens": usage.get("total_tokens"),
+                }
+                raw_response["usage"] = usage_info
             else:
-                raw_response["usage"] = {
+                usage_info = {
                     "prompt_tokens": getattr(usage, "prompt_tokens", None),
                     "completion_tokens": getattr(usage, "completion_tokens", None),
                     "total_tokens": getattr(usage, "total_tokens", None)
                 }
+                raw_response["usage"] = usage_info
         
         return content, raw_response
     
-    def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, Dict[str, Any]], None, None]:
+    def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, RawStreamChunk], None, None]:
         """Streaming chat completion with raw chunks"""
         formatted = self.format_messages(messages)
         stream = self.client.chat.stream(
@@ -115,7 +131,7 @@ class MistralProvider(LLMProvider[Mistral]):
         
         for event in stream:
             content = ""
-            raw_chunk = {
+            raw_chunk: RawStreamChunk = {
                 "object": "chat.completion.chunk",
                 "model": model,
                 "choices": []
@@ -126,11 +142,12 @@ class MistralProvider(LLMProvider[Mistral]):
                 raw_chunk["id"] = getattr(event.data, "id", None)
                 raw_chunk["created"] = getattr(event.data, "created", None)
                 
+                choices_list: List[StreamChoiceInfo] = []
                 if hasattr(event.data, "choices") and event.data.choices:
                     for choice in event.data.choices:
                         delta = choice.delta if hasattr(choice, "delta") else choice
                         
-                        choice_dict = {
+                        choice_dict: StreamChoiceInfo = {
                             "index": getattr(choice, "index", 0),
                             "delta": {},
                             "finish_reason": getattr(choice, "finish_reason", None)
@@ -138,7 +155,12 @@ class MistralProvider(LLMProvider[Mistral]):
                         
                         # Extract delta content
                         if isinstance(delta, dict):
-                            choice_dict["delta"] = delta
+                            choice_dict["delta"] = {
+                                "role": delta.get("role"),
+                                "content": delta.get("content"),
+                                "function_call": delta.get("function_call"),
+                                "tool_calls": delta.get("tool_calls"),
+                            }
                             content = delta.get("content", "")
                         else:
                             delta_content = getattr(delta, "content", None)
@@ -149,7 +171,9 @@ class MistralProvider(LLMProvider[Mistral]):
                                 "content": delta_content
                             }
                         
-                        raw_chunk["choices"].append(choice_dict)
+                        choices_list.append(choice_dict)
+                
+                raw_chunk["choices"] = choices_list
             
             if content:
                 yield content, raw_chunk
