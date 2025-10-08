@@ -6,7 +6,7 @@ import streamlit as st
 from modules.chat.types import Interaction
 from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
-from modules.providers.types import EcologicalImpact
+from modules.providers.types import EcologicalImpact, ToolResultInfo
 
 
 class Sidebar:
@@ -83,6 +83,42 @@ class ChatUI:
         """Display a single chat message"""
         with st.chat_message(role):
             st.markdown(content)
+    
+    @staticmethod
+    def display_tool_calls(tool_results: List[ToolResultInfo], in_chat_context: bool = True):
+        """Display tool call executions in a visually distinct way
+        
+        Args:
+            tool_results: List of tool execution results
+            in_chat_context: If True, wrap in st.chat_message("assistant"). 
+                           If False, assumes already in a chat message context.
+        """
+        if not tool_results:
+            return
+        
+        def render_tools():
+            st.markdown("🛠️ **Tool Calls Executed:**")
+            
+            for tool_result in tool_results:
+                tool_name = tool_result.get("name", "unknown")
+                tool_args = tool_result.get("arguments", {})
+                tool_output = tool_result.get("result", "")
+                
+                with st.expander(f"🔧 {tool_name}", expanded=True):
+                    # Display arguments
+                    if tool_args:
+                        st.markdown("**Arguments:**")
+                        st.json(tool_args)
+                    
+                    # Display result
+                    st.markdown("**Result:**")
+                    st.code(tool_output, language="json")
+        
+        if in_chat_context:
+            with st.chat_message("assistant"):
+                render_tools()
+        else:
+            render_tools()
     
     @staticmethod
     def display_streaming_response(response_generator: Generator[str, None, None]) -> str:
@@ -189,6 +225,13 @@ class RawMessageViewer:
             elif role == "assistant":
                 with st.expander(f"🤖 Assistant", expanded=True):
                     st.text(content)
+            elif role == "tool":
+                # Display tool result messages
+                with st.expander(f"🛠️ Tool Result", expanded=True):
+                    st.text(content)
+        
+        # Display tool execution results if available
+        RawMessageViewer._display_tool_results(interaction)
         
         # Raw JSON view
         with st.expander("📄 Raw Request JSON", expanded=False):
@@ -280,6 +323,50 @@ class RawMessageViewer:
         elif interaction["type"] == "streaming":
             # For streaming, we don't have usage info typically
             st.info("ℹ️ Token usage information is not available for streaming responses")
+    
+    @staticmethod
+    def _display_tool_results(interaction: Interaction):
+        """Display tool execution results if available"""
+        from modules.chat.types import (CompleteInteraction,
+                                        StreamingInteraction)
+        
+        tool_results = None
+        
+        if interaction["type"] == "complete":
+            # Type narrowing for CompleteInteraction
+            complete_interaction: CompleteInteraction = interaction  # type: ignore[assignment]
+            complete_response = complete_interaction["response"]
+            raw = complete_response.get("raw")
+            if raw:
+                tool_results = raw.get("tool_results")
+        elif interaction["type"] == "streaming":
+            # Type narrowing for StreamingInteraction
+            streaming_interaction: StreamingInteraction = interaction  # type: ignore[assignment]
+            streaming_response = streaming_interaction["response"]
+            chunks = streaming_response.get("chunks")
+            if chunks and isinstance(chunks, list):
+                for chunk in chunks:
+                    chunk_tool_results = chunk.get("tool_results")
+                    if chunk_tool_results:
+                        tool_results = chunk_tool_results
+                        break
+        
+        if tool_results:
+            for idx, tool_result in enumerate(tool_results, 1):
+                tool_name = tool_result.get("name", "unknown")
+                tool_args = tool_result.get("arguments", {})
+                tool_output = tool_result.get("result", "")
+                
+                with st.expander(f"Tool #{idx}: {tool_name}", expanded=True):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**Arguments:**")
+                        st.json(tool_args)
+                    
+                    with col2:
+                        st.markdown("**Result:**")
+                        st.code(tool_output, language="json")
     
     @staticmethod
     def _display_ecological_impact(impact: EcologicalImpact) -> None:
