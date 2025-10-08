@@ -2,8 +2,9 @@ from typing import Generator, List, Tuple
 
 from mistralai import Mistral
 
-from .base import (ChatMessage, ChoiceInfo, LLMProvider, MessageContent,
-                   RawResponse, RawStreamChunk, StreamChoiceInfo, UsageInfo)
+from .base import LLMProvider
+from .types import (ChatMessage, ChoiceInfo, MessageContent, RawResponse,
+                    RawStreamChunk, StreamChoiceInfo, UsageInfo)
 
 
 class MistralProvider(LLMProvider[Mistral]):

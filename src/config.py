@@ -1,9 +1,10 @@
 import os
 from dataclasses import dataclass
-from typing import Dict, Type, Union
+from typing import Dict, Type
 
 from dotenv import load_dotenv
 
+from core_types import LLMProviderInstance
 from providers import MistralProvider, OpenAIProvider
 
 load_dotenv()
@@ -12,7 +13,7 @@ load_dotenv()
 @dataclass
 class ProviderConfig:
     """Configuration for a provider"""
-    provider_class: Type[Union[OpenAIProvider, MistralProvider]]
+    provider_class: Type[LLMProviderInstance]
     api_key_env: str
     default_model_env: str
     default_model: str
@@ -46,7 +47,7 @@ class Config:
         return list(PROVIDER_REGISTRY.keys())
     
     @staticmethod
-    def get_provider(name: str) -> Union[OpenAIProvider, MistralProvider]:
+    def get_provider(name: str) -> LLMProviderInstance:
         """Factory method to create provider instances"""
         if name not in PROVIDER_REGISTRY:
             raise ValueError(f"Unknown provider: {name}")

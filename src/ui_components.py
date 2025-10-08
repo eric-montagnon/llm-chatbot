@@ -3,7 +3,7 @@ from typing import Generator, List, Tuple
 
 import streamlit as st
 
-from chat_manager import Interaction
+from chat_types import Interaction
 from config import Config
 
 

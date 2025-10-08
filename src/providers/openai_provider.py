@@ -3,7 +3,8 @@ from typing import Generator, List, Tuple
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
 
-from .base import ChatMessage, LLMProvider, RawResponse, RawStreamChunk
+from .base import LLMProvider
+from .types import ChatMessage, RawResponse, RawStreamChunk
 
 
 class OpenAIProvider(LLMProvider[OpenAI]):

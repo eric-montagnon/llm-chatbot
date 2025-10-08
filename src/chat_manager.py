@@ -1,53 +1,11 @@
 import time
-from typing import (Dict, Generator, List, Literal, Tuple, TypedDict, Union,
-                    overload)
+from typing import Dict, Generator, List, Literal, Tuple, Union, overload
 
+from chat_types import (ChatMessage, CompleteInteraction, Interaction,
+                        RequestData, StreamingInteraction)
 from config import Config
-from providers import MistralProvider, OpenAIProvider
-from providers.base import ChatMessage, RawResponse, RawStreamChunk
-
-
-class RequestData(TypedDict):
-    """Structure for request data"""
-    provider: str
-    model: str
-    messages: List[Dict[str, str]]
-    stream: bool
-    timestamp: float
-
-
-class StreamingResponse(TypedDict):
-    """Structure for streaming response data"""
-    chunks: List[RawStreamChunk]
-    total_chunks: int
-    final_content: str
-    duration_seconds: float
-
-
-class CompleteResponse(TypedDict):
-    """Structure for complete response data"""
-    raw: RawResponse
-    content: str
-    duration_seconds: float
-
-
-class StreamingInteraction(TypedDict):
-    """Structure for streaming interaction"""
-    type: Literal["streaming"]
-    request: RequestData
-    response: StreamingResponse
-    timestamp: float
-
-
-class CompleteInteraction(TypedDict):
-    """Structure for complete interaction"""
-    type: Literal["complete"]
-    request: RequestData
-    response: CompleteResponse
-    timestamp: float
-
-
-Interaction = Union[StreamingInteraction, CompleteInteraction]
+from core_types import LLMProviderInstance
+from providers.types import RawResponse, RawStreamChunk
 
 
 class ChatManager:
@@ -56,9 +14,9 @@ class ChatManager:
     def __init__(self):
         self.messages: List[Dict[str, str]] = []
         self.raw_interactions: List[Interaction] = []  # Store raw requests and responses
-        self._provider_cache: Dict[str, Union[OpenAIProvider, MistralProvider]] = {}
+        self._provider_cache: Dict[str, LLMProviderInstance] = {}
     
-    def get_provider(self, provider_name: str) -> Union[OpenAIProvider, MistralProvider]:
+    def get_provider(self, provider_name: str) -> LLMProviderInstance:
         if provider_name not in self._provider_cache:
             self._provider_cache[provider_name] = Config.get_provider(provider_name)
         return self._provider_cache[provider_name]
