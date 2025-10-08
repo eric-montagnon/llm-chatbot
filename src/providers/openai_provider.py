@@ -72,13 +72,16 @@ class OpenAIProvider(LLMProvider[OpenAI]):
                 }
                 for choice in response.choices
             ],
-            "usage": {
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else None,
-                "completion_tokens": response.usage.completion_tokens if response.usage else None,
-                "total_tokens": response.usage.total_tokens if response.usage else None,
-            } if response.usage else None,
             "system_fingerprint": response.system_fingerprint,
         }
+        
+        # Add usage separately to match TypedDict structure
+        if response.usage:
+            raw_response["usage"] = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
         
         return content, raw_response
     

@@ -1,9 +1,53 @@
 import time
-from typing import Any, Dict, Generator, List, Literal, Tuple, Union, overload
+from typing import (Dict, Generator, List, Literal, Tuple, TypedDict, Union,
+                    overload)
 
 from config import Config
 from providers import MistralProvider, OpenAIProvider
-from providers.base import ChatMessage
+from providers.base import ChatMessage, RawResponse, RawStreamChunk
+
+
+class RequestData(TypedDict):
+    """Structure for request data"""
+    provider: str
+    model: str
+    messages: List[Dict[str, str]]
+    stream: bool
+    timestamp: float
+
+
+class StreamingResponse(TypedDict):
+    """Structure for streaming response data"""
+    chunks: List[RawStreamChunk]
+    total_chunks: int
+    final_content: str
+    duration_seconds: float
+
+
+class CompleteResponse(TypedDict):
+    """Structure for complete response data"""
+    raw: RawResponse
+    content: str
+    duration_seconds: float
+
+
+class StreamingInteraction(TypedDict):
+    """Structure for streaming interaction"""
+    type: Literal["streaming"]
+    request: RequestData
+    response: StreamingResponse
+    timestamp: float
+
+
+class CompleteInteraction(TypedDict):
+    """Structure for complete interaction"""
+    type: Literal["complete"]
+    request: RequestData
+    response: CompleteResponse
+    timestamp: float
+
+
+Interaction = Union[StreamingInteraction, CompleteInteraction]
 
 
 class ChatManager:
@@ -11,7 +55,7 @@ class ChatManager:
     
     def __init__(self):
         self.messages: List[Dict[str, str]] = []
-        self.raw_interactions: List[Dict[str, Any]] = []  # Store raw requests and responses
+        self.raw_interactions: List[Interaction] = []  # Store raw requests and responses
         self._provider_cache: Dict[str, Union[OpenAIProvider, MistralProvider]] = {}
     
     def get_provider(self, provider_name: str) -> Union[OpenAIProvider, MistralProvider]:
@@ -73,11 +117,11 @@ class ChatManager:
         else:
             return provider.complete(chat_messages, model)
     
-    def add_raw_interaction(self, interaction: Dict[str, Any]):
+    def add_raw_interaction(self, interaction: Interaction):
         """Add a raw interaction (request/response pair) to history"""
         self.raw_interactions.append(interaction)
     
-    def get_raw_interactions(self) -> List[Dict[str, Any]]:
+    def get_raw_interactions(self) -> List[Interaction]:
         """Get all raw interactions"""
         return self.raw_interactions
     
@@ -87,7 +131,7 @@ class ChatManager:
         provider_name: str, 
         model: str, 
         stream: Literal[True]
-    ) -> Generator[Tuple[str, Dict[str, Any]], None, None]: ...
+    ) -> Generator[Tuple[str, RawStreamChunk], None, None]: ...
     
     @overload
     def generate_response_with_raw(
@@ -95,20 +139,20 @@ class ChatManager:
         provider_name: str, 
         model: str, 
         stream: Literal[False]
-    ) -> Tuple[str, Dict[str, Any]]: ...
+    ) -> Tuple[str, RawResponse]: ...
     
     def generate_response_with_raw(
         self, 
         provider_name: str, 
         model: str, 
         stream: bool = True
-    ) -> Union[Tuple[str, Dict[str, Any]], Generator[Tuple[str, Dict[str, Any]], None, None]]:
+    ) -> Union[Tuple[str, RawResponse], Generator[Tuple[str, RawStreamChunk], None, None]]:
         """Generate response with raw data and timing information"""
         provider = self.get_provider(provider_name)
         chat_messages = [ChatMessage(**msg) for msg in self.messages]
         
         # Create request data
-        request_data = {
+        request_data: RequestData = {
             "provider": provider_name,
             "model": model,
             "messages": self.messages,
@@ -117,9 +161,9 @@ class ChatManager:
         }
         
         if stream:
-            def stream_with_tracking():
+            def stream_with_tracking() -> Generator[Tuple[str, RawStreamChunk], None, None]:
                 start_time = time.time()
-                chunks = []
+                chunks: List[RawStreamChunk] = []
                 total_content = ""
                 
                 for content, raw_chunk in provider.stream_with_raw(chat_messages, model):
@@ -129,7 +173,7 @@ class ChatManager:
                 
                 # After streaming completes, save the interaction
                 end_time = time.time()
-                interaction = {
+                interaction: StreamingInteraction = {
                     "type": "streaming",
                     "request": request_data,
                     "response": {
@@ -149,7 +193,7 @@ class ChatManager:
             end_time = time.time()
             
             # Save the interaction
-            interaction = {
+            interaction: CompleteInteraction = {
                 "type": "complete",
                 "request": request_data,
                 "response": {
