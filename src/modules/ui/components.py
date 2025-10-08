@@ -6,6 +6,7 @@ import streamlit as st
 from modules.chat.types import Interaction
 from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
+from modules.providers.types import EcologicalImpact
 
 
 class Sidebar:
@@ -270,9 +271,52 @@ class RawMessageViewer:
                                     )
                         else:
                             st.info(f"ℹ️ Pricing information not available for model: {model}")
+            
+            # Display ecological impact for non-streaming requests
+            impact = raw.get("impact") if raw else None
+            if impact is not None:
+                RawMessageViewer._display_ecological_impact(impact)
+                        
         elif interaction["type"] == "streaming":
             # For streaming, we don't have usage info typically
             st.info("ℹ️ Token usage information is not available for streaming responses")
+    
+    @staticmethod
+    def _display_ecological_impact(impact: EcologicalImpact) -> None:
+        """Display ecological impact metrics"""
+        st.write("### 🌍 Ecological Impact")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            energy = impact.get("energy_kwh", 0)*1000  # Convert kWh to Wh
+            st.metric(
+                "Energy Consumption",
+                f"{energy:.1f} Wh",
+                help="Total energy consumed in watt-hours"
+            )
+
+            gwp = impact.get("gwp_kgco2eq", 0)*1000  # Convert kg to g
+            st.metric(
+                "Carbon Footprint (GWP)",
+                f"{gwp:.1f} g CO₂eq",
+                help="Global Warming Potential in g of CO₂ equivalent"
+            )
+        
+        with col2:
+            adpe = impact.get("adpe_kgsbeq", 0) * 1000  # Convert kg to g
+            st.metric(
+                "Abiotic Depletion (ADPe)",
+                f"{adpe:.1f} g Sb eq",
+                help="Abiotic Depletion Potential for elements in g of Antimony equivalent"
+            )
+
+            pe = impact.get("pe_mj", 0) * 1000000  # Convert MJ to J
+            st.metric(
+                "Primary Energy (PE)",
+                f"{pe:.1f} J",
+                help="Primary Energy consumption in Joules"
+            )
     
     @staticmethod
     def display_streaming_status(chunk_count: int):

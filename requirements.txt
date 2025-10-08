@@ -3,3 +3,4 @@ openai>=1.30.0
 mistralai>=1.0.0
 python-dotenv>=1.0.1
 pyright>=1.1.350
+ecologits>=0.8.2

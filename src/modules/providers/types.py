@@ -55,6 +55,14 @@ class UsageInfo(TypedDict, total=False):
     total_tokens: Optional[int]
 
 
+class EcologicalImpact(TypedDict):
+    """Ecological impact information from ecologits"""
+    energy_kwh: float
+    gwp_kgco2eq: float
+    adpe_kgsbeq: float
+    pe_mj: float
+
+
 # ============================================================================
 # Non-Streaming Response Types
 # ============================================================================
@@ -84,6 +92,7 @@ class RawResponse(TypedDict, total=False):
     choices: Sequence[ChoiceInfo]
     usage: Optional[UsageInfo]
     system_fingerprint: Optional[str]
+    impact: Optional[EcologicalImpact]
 
 
 # ============================================================================

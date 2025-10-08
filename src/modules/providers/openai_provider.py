@@ -1,10 +1,11 @@
 from typing import Generator, List, Tuple
 
+from ecologits import EcoLogits
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
 
 from .base import LLMProvider
-from .types import ChatMessage, RawResponse, RawStreamChunk
+from .types import ChatMessage, EcologicalImpact, RawResponse, RawStreamChunk
 
 
 class OpenAIProvider(LLMProvider[OpenAI]):
@@ -13,7 +14,29 @@ class OpenAIProvider(LLMProvider[OpenAI]):
     def _initialize_client(self) -> OpenAI:
         if not self.api_key:
             raise RuntimeError("Missing OPENAI_API_KEY")
+        
+        # Initialize EcoLogits tracer
+        EcoLogits.init()
+        
         return OpenAI(api_key=self.api_key)
+    
+    def _extract_impacts(self, response: ChatCompletion) -> EcologicalImpact:
+        """Extract ecological impacts from response"""
+        if hasattr(response, 'impacts'):
+            impacts = response.impacts  # type: ignore[attr-defined]
+            return {
+                "energy_kwh": impacts.energy.value,
+                "gwp_kgco2eq": impacts.gwp.value,
+                "adpe_kgsbeq": impacts.adpe.value,
+                "pe_mj": impacts.pe.value,
+            }
+        # Return default values if no impacts available
+        return {
+            "energy_kwh": 0.0,
+            "gwp_kgco2eq": 0.0,
+            "adpe_kgsbeq": 0.0,
+            "pe_mj": 0.0,
+        }
     
     def complete(self, messages: List[ChatMessage], model: str) -> str:
         """Non-streaming chat completion"""
@@ -83,6 +106,10 @@ class OpenAIProvider(LLMProvider[OpenAI]):
                 "completion_tokens": response.usage.completion_tokens,
                 "total_tokens": response.usage.total_tokens,
             }
+        
+        # Add ecological impact if available
+        if hasattr(response, 'impacts'):
+            raw_response["impact"] = self._extract_impacts(response)
         
         return content, raw_response
     

@@ -1,10 +1,11 @@
 from typing import Generator, List, Tuple
 
+from ecologits import EcoLogits
 from mistralai import Mistral
 
 from .base import LLMProvider
-from .types import (ChatMessage, ChoiceInfo, MessageContent, RawResponse,
-                    RawStreamChunk, StreamChoiceInfo, UsageInfo)
+from .types import (ChatMessage, ChoiceInfo, EcologicalImpact, MessageContent,
+                    RawResponse, RawStreamChunk, StreamChoiceInfo, UsageInfo)
 
 
 class MistralProvider(LLMProvider[Mistral]):
@@ -12,7 +13,29 @@ class MistralProvider(LLMProvider[Mistral]):
     def _initialize_client(self) -> Mistral:
         if not self.api_key:
             raise RuntimeError("Missing MISTRAL_API_KEY")
+        
+        # Initialize EcoLogits tracer
+        EcoLogits.init()
+        
         return Mistral(api_key=self.api_key)
+    
+    def _extract_impacts(self, response: object) -> EcologicalImpact:
+        """Extract ecological impacts from response"""
+        if hasattr(response, 'impacts'):
+            impacts = response.impacts  # type: ignore[attr-defined]
+            return {
+                "energy_kwh": impacts.energy.value,
+                "gwp_kgco2eq": impacts.gwp.value,
+                "adpe_kgsbeq": impacts.adpe.value,
+                "pe_mj": impacts.pe.value,
+            }
+        # Return default values if no impacts available
+        return {
+            "energy_kwh": 0.0,
+            "gwp_kgco2eq": 0.0,
+            "adpe_kgsbeq": 0.0,
+            "pe_mj": 0.0,
+        }
     
     def complete(self, messages: List[ChatMessage], model: str) -> str:
         """Non-streaming chat completion"""
@@ -119,6 +142,10 @@ class MistralProvider(LLMProvider[Mistral]):
                     "total_tokens": getattr(usage, "total_tokens", None)
                 }
                 raw_response["usage"] = usage_info
+        
+        # Add ecological impact if available
+        if hasattr(response, 'impacts'):
+            raw_response["impact"] = self._extract_impacts(response)
         
         return content, raw_response
     
