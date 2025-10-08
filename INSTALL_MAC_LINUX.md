@@ -15,7 +15,7 @@ This guide covers installation and setup for macOS and Linux systems.
 1. **Clone the repository:**
 
    ```bash
-   git clone <repository-url>
+   git clone git@github.com:eric-montagnon/llm-chatbot.git
    cd llm-chatbot
    ```
 
@@ -59,7 +59,7 @@ This guide covers installation and setup for macOS and Linux systems.
 2. **Run the Streamlit app:**
 
    ```bash
-   streamlit run src/app.py
+   streamlit run src/main.py
    ```
 
 3. **Access the application:**

@@ -15,7 +15,7 @@ This guide covers installation and setup for Windows systems.
 1. **Clone the repository:**
 
    ```powershell
-   git clone <repository-url>
+   git clone git@github.com:eric-montagnon/llm-chatbot.git
    cd llm-chatbot
    ```
 
@@ -65,7 +65,7 @@ This guide covers installation and setup for Windows systems.
 2. **Run the Streamlit app:**
 
    ```powershell
-   streamlit run src/app.py
+   streamlit run src/main.py
    ```
 
 3. **Access the application:**
