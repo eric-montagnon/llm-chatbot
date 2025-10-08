@@ -1,7 +1,8 @@
 from typing import Dict, Generator, List, Literal, Union, overload
 
 from config import Config
-from providers.base import ChatMessage, LLMProvider
+from providers import MistralProvider, OpenAIProvider
+from providers.base import ChatMessage
 
 
 class ChatManager:
@@ -9,9 +10,9 @@ class ChatManager:
     
     def __init__(self):
         self.messages: List[Dict[str, str]] = []
-        self._provider_cache: Dict[str, LLMProvider] = {}
+        self._provider_cache: Dict[str, Union[OpenAIProvider, MistralProvider]] = {}
     
-    def get_provider(self, provider_name: str) -> LLMProvider:
+    def get_provider(self, provider_name: str) -> Union[OpenAIProvider, MistralProvider]:
         if provider_name not in self._provider_cache:
             self._provider_cache[provider_name] = Config.get_provider(provider_name)
         return self._provider_cache[provider_name]

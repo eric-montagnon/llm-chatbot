@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generator, List, Optional
+from typing import Generator, Generic, List, Optional, TypeVar
 
 
 @dataclass
@@ -10,23 +10,27 @@ class ChatMessage:
     content: str
 
 
-class LLMProvider(ABC):
+# Generic type variable for the client
+ClientType = TypeVar('ClientType')
+
+
+class LLMProvider(ABC, Generic[ClientType]):
     """Abstract base class for LLM providers"""
     
     def __init__(self, api_key: str, default_model: Optional[str] = None):
         self.api_key = api_key
         self.default_model = default_model
-        self._client: object = None
+        self._client: Optional[ClientType] = None
     
     @property
-    def client(self) -> object:
+    def client(self) -> ClientType:
         """Lazy initialization of client"""
         if self._client is None:
             self._client = self._initialize_client()
         return self._client
     
     @abstractmethod
-    def _initialize_client(self) -> object:
+    def _initialize_client(self) -> ClientType:
         """Initialize the provider-specific client"""
         pass
     
