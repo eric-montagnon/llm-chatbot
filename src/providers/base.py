@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generator, Generic, List, Optional, TypeVar
+from typing import (Any, Dict, Generator, Generic, List, Optional, Tuple,
+                    TypeVar)
 
 
 @dataclass
@@ -42,6 +43,16 @@ class LLMProvider(ABC, Generic[ClientType]):
     @abstractmethod
     def stream(self, messages: List[ChatMessage], model: str) -> Generator[str, None, None]:
         """Streaming completion"""
+        pass
+    
+    @abstractmethod
+    def complete_with_raw(self, messages: List[ChatMessage], model: str) -> Tuple[str, Dict[str, Any]]:
+        """Non-streaming completion with raw response"""
+        pass
+    
+    @abstractmethod
+    def stream_with_raw(self, messages: List[ChatMessage], model: str) -> Generator[Tuple[str, Dict[str, Any]], None, None]:
+        """Streaming completion with raw response chunks"""
         pass
     
     def format_messages(self, messages: List[ChatMessage]) -> list[dict[str, str]]:

@@ -1,4 +1,5 @@
-from typing import Generator, Tuple
+from datetime import datetime
+from typing import Any, Dict, Generator, List, Tuple
 
 import streamlit as st
 
@@ -97,3 +98,77 @@ class ChatUI:
             import traceback
             with st.expander("Error Details", expanded=False):
                 st.code(traceback.format_exc(), language="python")
+
+
+class RawMessageViewer:
+    """Component for displaying raw LLM interactions"""
+    
+    @staticmethod
+    def display_raw_interactions(interactions: List[Dict[str, Any]]):
+        """Display raw request data sent to LLM"""
+        if not interactions:
+            st.info("💬 No interactions yet. Send a message to see raw request data.")
+            return
+        
+        RawMessageViewer._display_requests(interactions)
+    
+    @staticmethod
+    def _display_requests(interactions: List[Dict[str, Any]]):
+        """Display request details"""
+        st.subheader("📤 Request Messages to LLM")
+        
+        if not interactions:
+            st.write("No requests to display")
+            return
+        
+        # Select interaction
+        interaction_options = [
+            f"#{idx + 1} - {datetime.fromtimestamp(i.get('timestamp', 0)).strftime('%H:%M:%S')} - {i.get('request', {}).get('model', 'N/A')}"
+            for idx, i in enumerate(interactions)
+        ]
+        
+        selected_idx = st.selectbox(
+            "Select interaction:",
+            range(len(interactions)),
+            format_func=lambda x: interaction_options[x],
+            index=len(interactions) - 1 if interactions else 0
+        )
+        
+        if selected_idx is not None and selected_idx < len(interactions):
+            interaction = interactions[selected_idx]
+            request = interaction.get("request", {})
+            
+            # Display request metadata
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write(f"**Provider:** {request.get('provider', 'N/A')}")
+            with col2:
+                st.write(f"**Model:** {request.get('model', 'N/A')}")
+            with col3:
+                st.write(f"**Stream:** {request.get('stream', False)}")
+            
+            # Display messages
+            st.write("### Messages Sent")
+            messages = request.get("messages", [])
+            for msg in messages:
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                
+                if role == "system":
+                    with st.expander(f"🔧 System", expanded=False):
+                        st.text(content)
+                elif role == "user":
+                    with st.expander(f"👤 User", expanded=True):
+                        st.text(content)
+                elif role == "assistant":
+                    with st.expander(f"🤖 Assistant", expanded=True):
+                        st.text(content)
+            
+            # Raw JSON view
+            with st.expander("📄 Raw Request JSON", expanded=False):
+                st.json(request)
+    
+    @staticmethod
+    def display_streaming_status(chunk_count: int):
+        """Display real-time streaming status"""
+        return st.empty().info(f"🔄 Streaming... ({chunk_count} chunks received)")
