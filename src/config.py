@@ -1,8 +1,10 @@
 import os
 from dataclasses import dataclass
-from typing import Dict, Type, Optional
+from typing import Dict, Type
+
 from dotenv import load_dotenv
-from providers import LLMProvider, OpenAIProvider, MistralProvider
+
+from providers import LLMProvider, MistralProvider, OpenAIProvider
 
 load_dotenv()
 
@@ -44,7 +46,7 @@ class Config:
         return list(PROVIDER_REGISTRY.keys())
     
     @staticmethod
-    def get_provider(name: str) -> Optional[LLMProvider]:
+    def get_provider(name: str) -> LLMProvider:
         """Factory method to create provider instances"""
         if name not in PROVIDER_REGISTRY:
             raise ValueError(f"Unknown provider: {name}")

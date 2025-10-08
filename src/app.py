@@ -35,15 +35,19 @@ if user_input:
     
     with st.chat_message("assistant"):
         try:
-            response = st.session_state.chat_manager.generate_response(
-                provider_name=provider,
-                model=model,
-                stream=stream
-            )
-            
             if stream:
+                response = st.session_state.chat_manager.generate_response(
+                    provider_name=provider,
+                    model=model,
+                    stream=True
+                )
                 content = ChatUI.display_streaming_response(response)
             else:
+                response = st.session_state.chat_manager.generate_response(
+                    provider_name=provider,
+                    model=model,
+                    stream=False
+                )
                 content = ChatUI.display_response(response)
             
             st.session_state.chat_manager.add_message("assistant", content)

@@ -16,17 +16,17 @@ class LLMProvider(ABC):
     def __init__(self, api_key: str, default_model: Optional[str] = None):
         self.api_key = api_key
         self.default_model = default_model
-        self._client = None
+        self._client: object = None
     
     @property
-    def client(self):
+    def client(self) -> object:
         """Lazy initialization of client"""
         if self._client is None:
             self._client = self._initialize_client()
         return self._client
     
     @abstractmethod
-    def _initialize_client(self):
+    def _initialize_client(self) -> object:
         """Initialize the provider-specific client"""
         pass
     
@@ -40,6 +40,6 @@ class LLMProvider(ABC):
         """Streaming completion"""
         pass
     
-    def format_messages(self, messages: List[ChatMessage]) -> List[dict]:
+    def format_messages(self, messages: List[ChatMessage]) -> list[dict[str, str]]:
         """Default message formatting - can be overridden"""
         return [{"role": m.role, "content": m.content} for m in messages]

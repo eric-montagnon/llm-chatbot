@@ -1,4 +1,4 @@
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List, Literal, Union, overload
 
 from config import Config
 from providers.base import ChatMessage, LLMProvider
@@ -38,6 +38,22 @@ class ChatManager:
     
     def get_display_messages(self) -> List[Dict[str, str]]:
         return [msg for msg in self.messages if msg["role"] != "system"]
+    
+    @overload
+    def generate_response(
+        self, 
+        provider_name: str, 
+        model: str, 
+        stream: Literal[True]
+    ) -> Generator[str, None, None]: ...
+    
+    @overload
+    def generate_response(
+        self, 
+        provider_name: str, 
+        model: str, 
+        stream: Literal[False]
+    ) -> str: ...
     
     def generate_response(
         self, 
