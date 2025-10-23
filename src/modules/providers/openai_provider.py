@@ -15,6 +15,7 @@ from .base import LLMProvider
 from .types import (ChatMessage, EcologicalImpact, RawResponse, RawStreamChunk,
                     ToolResultInfo)
 
+DEFAULT_TEMPERATURE: float = 0
 
 class OpenAIProvider(LLMProvider[OpenAI]):
     """OpenAI-specific implementation"""
@@ -163,6 +164,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             response = self.client.chat.completions.create(
                 model=model,
                 messages=formatted,
+                temperature=DEFAULT_TEMPERATURE,
                 stream=False,
                 tools=tools_list,
                 tool_choice="auto"
@@ -171,6 +173,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             response = self.client.chat.completions.create(
                 model=model,
                 messages=formatted,
+                temperature=DEFAULT_TEMPERATURE,
                 stream=False
             )
         
@@ -296,6 +299,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
         final_response = self.client.chat.completions.create(
             model=model,
             messages=formatted,
+            temperature=DEFAULT_TEMPERATURE,
             stream=False
         )
         assert isinstance(final_response, ChatCompletion)
@@ -355,6 +359,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             stream_response = self.client.chat.completions.create(
                 model=model,
                 messages=formatted,
+                temperature=DEFAULT_TEMPERATURE,
                 stream=True,
                 tools=tools_list,
                 tool_choice="auto"
@@ -363,6 +368,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             stream_response = self.client.chat.completions.create(
                 model=model,
                 messages=formatted,
+                temperature=DEFAULT_TEMPERATURE,
                 stream=True
             )
         # Type narrowing: stream=True guarantees Stream
@@ -491,6 +497,7 @@ class OpenAIProvider(LLMProvider[OpenAI]):
             final_stream = self.client.chat.completions.create(
                 model=model,
                 messages=formatted_with_tools,
+                temperature=DEFAULT_TEMPERATURE,
                 stream=True
             )
             assert not isinstance(final_stream, ChatCompletion)

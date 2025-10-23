@@ -8,6 +8,7 @@ from .types import (ChatMessage, ChoiceInfo, EcologicalImpact, MessageContent,
                     RawResponse, RawStreamChunk, StreamChoiceInfo,
                     ToolResultInfo, UsageInfo)
 
+DEFAULT_TEMPERATURE: float = 0
 
 class MistralProvider(LLMProvider[Mistral]):
     
@@ -83,7 +84,8 @@ class MistralProvider(LLMProvider[Mistral]):
         # Prepare request kwargs
         kwargs: Dict[str, object] = {
             "model": model,
-            "messages": formatted
+            "messages": formatted,
+            "temperature": DEFAULT_TEMPERATURE
         }
         
         # Add tools if registry is available
@@ -258,7 +260,8 @@ class MistralProvider(LLMProvider[Mistral]):
         
         final_response = self.client.chat.complete(
             model=model,
-            messages=formatted  # type: ignore[arg-type]
+            messages=formatted,  # type: ignore[arg-type]
+            temperature=DEFAULT_TEMPERATURE
         )
         
         # Extract content from final response
@@ -336,7 +339,8 @@ class MistralProvider(LLMProvider[Mistral]):
         # Prepare request kwargs
         kwargs: Dict[str, object] = {
             "model": model,
-            "messages": formatted
+            "messages": formatted,
+            "temperature": DEFAULT_TEMPERATURE
         }
         
         # Add tools if registry is available
