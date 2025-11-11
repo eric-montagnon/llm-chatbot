@@ -29,7 +29,7 @@ def show_message(message: HumanMessage | AIMessage | SystemMessage, messages: Li
 
         if message.content:
             content = message.content if isinstance(message.content, str) else str(message.content)
-            ChatUI.display_message("assistant", content)
+            ChatUI.display_ai_message_with_costs(message)
 
 def show_messages_in_UI(messages: List[HumanMessage | AIMessage | SystemMessage]) -> None:
    for msg in messages:

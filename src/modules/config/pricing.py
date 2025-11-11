@@ -13,52 +13,53 @@ class ModelPricing(TypedDict):
     input_price: float  # Price per 1M input tokens
     output_price: float  # Price per 1M output tokens
     currency: str  # Currency code (e.g., "USD")
+    provider: str  # Provider name (e.g., "OpenAI", "Mistral")
 
 
-# OpenAI Pricing (as of October 2024)
-# Source: https://openai.com/api/pricing/
-OPENAI_PRICING: Dict[str, ModelPricing] = {
-    "gpt-4.1": {
+# Unified model pricing dictionary - model name is the key
+# Models are organized by provider for documentation but stored in a flat structure
+MODEL_PRICING: Dict[str, ModelPricing] = {
+    # OpenAI Pricing (as of October 2024)
+    # Source: https://openai.com/api/pricing/
+    "gpt-4.1-2025-04-14": {
         "input_price": 2,
         "output_price": 8,
-        "currency": "USD"
+        "currency": "USD",
+        "provider": "OpenAI"
     },
-    "gpt-4.1-mini": {
+    "gpt-4.1-mini-2025-04-14": {
         "input_price": 0.4,
         "output_price": 1.6,
-        "currency": "USD"
+        "currency": "USD",
+        "provider": "OpenAI"
     },
-    "gpt-4.1-nano": {
+    "gpt-4.1-nano-2025-04-14": {
         "input_price": 0.1,
         "output_price": 0.4,
-        "currency": "USD"
+        "currency": "USD",
+        "provider": "OpenAI"
     },
-}
-
-# Mistral AI Pricing (as of October 2024)
-# Source: https://mistral.ai/technology/#pricing
-MISTRAL_PRICING: Dict[str, ModelPricing] = {
+    
+    # Mistral AI Pricing (as of October 2024)
+    # Source: https://mistral.ai/technology/#pricing
     "mistral-medium-latest": {
         "input_price": 0.4,
         "output_price": 2.00,
-        "currency": "USD"
+        "currency": "USD",
+        "provider": "Mistral"
     },
     "magistral-medium-latest": {
         "input_price": 2.00,
         "output_price": 5.00,
-        "currency": "USD"
+        "currency": "USD",
+        "provider": "Mistral"
     },
     "codestral-latest": {
         "input_price": 0.3,
         "output_price": 0.9,
-        "currency": "USD"
+        "currency": "USD",
+        "provider": "Mistral"
     },
-}
-
-# Provider pricing registry
-PROVIDER_PRICING: Dict[str, Dict[str, ModelPricing]] = {
-    "OpenAI": OPENAI_PRICING,
-    "Mistral": MISTRAL_PRICING,
 }
 
 
@@ -66,26 +67,51 @@ class PricingCalculator:
     """Calculate costs for LLM API usage"""
     
     @staticmethod
-    def get_model_pricing(provider: str, model: str) -> Optional[ModelPricing]:
-        """Get pricing information for a specific model"""
-        provider_prices = PROVIDER_PRICING.get(provider, {})
-        return provider_prices.get(model)
+    def get_model_pricing(model: str) -> Optional[ModelPricing]:
+        """Get pricing information for a specific model
+        
+        Args:
+            model: The model name (e.g., "gpt-4.1", "mistral-medium-latest")
+            
+        Returns:
+            ModelPricing dictionary if found, None otherwise
+        """
+        return MODEL_PRICING.get(model)
     
     @staticmethod
     def get_available_models(provider: str) -> List[str]:
-        """Get list of available models for a provider"""
-        provider_prices = PROVIDER_PRICING.get(provider, {})
-        return sorted(provider_prices.keys())
+        """Get list of available models for a provider
+        
+        Args:
+            provider: The provider name (e.g., "OpenAI", "Mistral")
+            
+        Returns:
+            Sorted list of model names for the provider
+        """
+        models = [
+            model_name 
+            for model_name, pricing in MODEL_PRICING.items() 
+            if pricing["provider"] == provider
+        ]
+        return sorted(models)
     
     @staticmethod
     def calculate_cost(
-        provider: str,
         model: str,
         input_tokens: int,
         output_tokens: int
     ) -> Optional[float]:
-        """Calculate the cost of a request in USD"""
-        pricing = PricingCalculator.get_model_pricing(provider, model)
+        """Calculate the cost of a request in USD
+        
+        Args:
+            model: The model name (e.g., "gpt-4.1", "mistral-medium-latest")
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+            
+        Returns:
+            Total cost in USD, or None if pricing not available
+        """
+        pricing = PricingCalculator.get_model_pricing(model)
         if not pricing:
             return None
         

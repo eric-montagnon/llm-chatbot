@@ -1,7 +1,7 @@
 from typing import Generator, Tuple
 
 import streamlit as st
-from langchain.messages import ToolCall
+from langchain.messages import AIMessage, ToolCall
 
 from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
@@ -75,6 +75,45 @@ class ChatUI:
         """Display a single chat message"""
         with st.chat_message(role):
             st.markdown(content)
+
+    @staticmethod
+    def display_ai_message_with_costs(message: AIMessage):
+        """Display an AI message with token usage and cost information
+        
+        Args:
+            message: The AIMessage object containing content, usage metadata, and response metadata
+        """
+        with st.chat_message("assistant"):
+            # Create columns: main content (wider) and cost info (narrower)
+            col1, col2 = st.columns([4, 1])
+            
+            with col1:
+                # Display the message content
+                if message.content:
+                    st.markdown(message.content)
+            
+            with col2:
+                # Display token usage and cost if available
+                usage = message.usage_metadata
+                if usage:
+                    input_tokens = usage.get('input_tokens', 0)
+                    output_tokens = usage.get('output_tokens', 0)
+                    
+                    # Extract model from response_metadata
+                    response_metadata = message.response_metadata
+                    model_name = response_metadata.get('model_name', '')
+                    
+                    # Calculate cost using just the model name
+                    cost = PricingCalculator.calculate_cost(
+                        model=model_name,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens
+                    ) if model_name else None
+                    
+                    # Display cost information
+                    if cost is not None:
+                        formatted_cost = PricingCalculator.format_cost(cost)
+                        st.markdown(f"**💰 {formatted_cost}**")
     
     @staticmethod
     def display_tool_calls(tool_call: ToolCall, in_chat_context: bool = True, response: str = ""):
