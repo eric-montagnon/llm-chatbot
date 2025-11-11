@@ -14,7 +14,7 @@
   ],
   "strict": [],
   "typeCheckingMode": "standard",
-  "pythonVersion": "3.9",
+  "pythonVersion": "3.13",
   "pythonPlatform": "All",
   "venvPath": ".",
   "venv": ".venv",
