@@ -2,13 +2,11 @@ from typing import Any, Iterator, List, Optional
 
 from langchain.agents import create_agent
 from langchain.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_mistralai import ChatMistralAI
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 
-
-def get_weather(city: str) -> str:
-    """Get weather for a given city."""
-    print(f"Getting weather for {city}...")
-    return f"It's always sunny in {city}!"
+from modules.providers.tools import calculate, get_current_time, get_weather
 
 
 class LangChainProvider:
@@ -22,12 +20,27 @@ class LangChainProvider:
             model: The model to use (default: gpt-4)
             system_prompt: System prompt for the agent
         """
-        self.model = model
+        self.model_name = model
         self.system_prompt = system_prompt
         self.checkpointer = MemorySaver()
         self.agent = None
         self.current_thread_id = None
         self._messages: List[HumanMessage | AIMessage | SystemMessage] = []  # Accumulated messages from streaming
+
+    def _get_model_instance(self):
+        """Get the appropriate model instance based on model name."""
+        # Determine if it's a Mistral or OpenAI model
+        mistral_models = ["codestral-latest", "mistral-medium-latest", "mistral-small-latest", "mistral-large-latest"]
+        
+        if self.model_name in mistral_models or self.model_name.startswith("mistral-") or self.model_name.startswith("codestral-"):
+            return ChatMistralAI(
+                model_name=self.model_name
+            )
+        else:
+            # Default to OpenAI
+            return ChatOpenAI(
+                model=self.model_name
+            )
 
     def get_response_stream(
         self,
@@ -47,10 +60,12 @@ class LangChainProvider:
         Returns:
             Iterator yielding message chunks
         """
-        # Create or recreate the agent
+        # Create or recreate the agent with proper model instance
+        model_instance = self._get_model_instance()
+        
         self.agent = create_agent(
-            model=self.model,
-            tools=[get_weather],
+            model=model_instance,
+            tools=[get_weather, get_current_time, calculate],
             system_prompt=self.system_prompt,
             checkpointer=self.checkpointer,
         )
@@ -145,11 +160,11 @@ class LangChainProvider:
         """
         # Note: MemorySaver doesn't have a built-in clear method
         # You might need to reinitialize the checkpointer or implement custom logic
-        self.__init__(model=self.model, system_prompt=self.system_prompt)
+        self.__init__(model=self.model_name, system_prompt=self.system_prompt)
     
     def set_model(self, model: str) -> None:
         """Update the model being used."""
-        self.model = model
+        self.model_name = model
         
     def set_system_prompt(self, system_prompt: str) -> None:
         """Update the system prompt."""
