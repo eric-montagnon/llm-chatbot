@@ -45,7 +45,7 @@
     {
       "type": "model",
       "provider": "openai",
-      "name": "gpt-4.1",
+      "name": "gpt-4.1-2025-04-14",
       "architecture": {
         "type": "moe",
         "parameters": {
@@ -62,7 +62,7 @@
     {
       "type": "model",
       "provider": "openai",
-      "name": "gpt-4.1-mini",
+      "name": "gpt-4.1-mini-2025-04-14",
       "architecture": {
         "type": "dense",
         "parameters": {
@@ -76,7 +76,7 @@
     {
       "type": "model",
       "provider": "openai",
-      "name": "gpt-4.1-nano",
+      "name": "gpt-4.1-nano-2025-04-14",
       "architecture": {
         "type": "dense",
         "parameters": {
