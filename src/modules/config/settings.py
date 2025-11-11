@@ -1,11 +1,8 @@
 import os
 from dataclasses import dataclass
-from typing import Dict, Type
+from typing import Dict
 
 from dotenv import load_dotenv
-
-from modules.config.types import LLMProviderInstance
-from modules.providers import MistralProvider, OpenAIProvider
 
 load_dotenv()
 
@@ -13,7 +10,6 @@ load_dotenv()
 @dataclass
 class ProviderConfig:
     """Configuration for a provider"""
-    provider_class: Type[LLMProviderInstance]
     api_key_env: str
     default_model_env: str
     default_model: str
@@ -22,13 +18,11 @@ class ProviderConfig:
 # Registry of available providers
 PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
     "OpenAI": ProviderConfig(
-        provider_class=OpenAIProvider,
         api_key_env="OPENAI_API_KEY",
         default_model_env="OPENAI_MODEL",
         default_model="gpt-4o-mini"
     ),
     "Mistral": ProviderConfig(
-        provider_class=MistralProvider,
         api_key_env="MISTRAL_API_KEY",
         default_model_env="MISTRAL_MODEL",
         default_model="mistral-small-latest"
@@ -45,18 +39,6 @@ class Config:
     def get_provider_names() -> list[str]:
         """Get list of available provider names"""
         return list(PROVIDER_REGISTRY.keys())
-    
-    @staticmethod
-    def get_provider(name: str) -> LLMProviderInstance:
-        """Factory method to create provider instances"""
-        if name not in PROVIDER_REGISTRY:
-            raise ValueError(f"Unknown provider: {name}")
-        
-        config = PROVIDER_REGISTRY[name]
-        api_key = os.getenv(config.api_key_env, "")
-        default_model = os.getenv(config.default_model_env, config.default_model)
-        
-        return config.provider_class(api_key=api_key, default_model=default_model)
     
     @staticmethod
     def get_default_model(provider_name: str) -> str:
