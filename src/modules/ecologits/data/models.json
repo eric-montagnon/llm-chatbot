@@ -1,0 +1,91 @@
+{
+  "models": [
+    {
+      "type": "model",
+      "provider": "mistralai",
+      "name": "codestral-latest",
+      "architecture": {
+        "type": "dense",
+        "parameters": 22.2
+      },
+      "warnings": null,
+      "sources": [
+        "https://docs.mistral.ai/getting-started/models/",
+        "https://mistral.ai/news/codestral"
+      ]
+    },
+    {
+      "type": "model",
+      "provider": "mistralai",
+      "name": "magistral-medium-latest",
+      "architecture": {
+        "type": "dense",
+        "parameters": {
+          "min": 70,
+          "max": 120
+        }
+      },
+      "warnings": ["model-arch-not-released"],
+      "sources": ["https://docs.mistral.ai/getting-started/models/"]
+    },
+    {
+      "type": "model",
+      "provider": "mistralai",
+      "name": "mistral-medium-latest",
+      "architecture": {
+        "type": "dense",
+        "parameters": {
+          "min": 70,
+          "max": 120
+        }
+      },
+      "warnings": ["model-arch-not-released"],
+      "sources": ["https://docs.mistral.ai/getting-started/models/"]
+    },
+    {
+      "type": "model",
+      "provider": "openai",
+      "name": "gpt-4.1",
+      "architecture": {
+        "type": "moe",
+        "parameters": {
+          "total": 352,
+          "active": {
+            "min": 35,
+            "max": 106
+          }
+        }
+      },
+      "warnings": ["model-arch-not-released", "model-arch-multimodal"],
+      "sources": ["https://platform.openai.com/docs/models"]
+    },
+    {
+      "type": "model",
+      "provider": "openai",
+      "name": "gpt-4.1-mini",
+      "architecture": {
+        "type": "dense",
+        "parameters": {
+          "min": 40,
+          "max": 112
+        }
+      },
+      "warnings": ["model-arch-not-released", "model-arch-multimodal"],
+      "sources": ["https://platform.openai.com/docs/models"]
+    },
+    {
+      "type": "model",
+      "provider": "openai",
+      "name": "gpt-4.1-nano",
+      "architecture": {
+        "type": "dense",
+        "parameters": {
+          "min": 10,
+          "max": 37
+        }
+      },
+      "warnings": ["model-arch-not-released", "model-arch-multimodal"],
+      "sources": ["https://platform.openai.com/docs/models"]
+    }
+  ]
+}
