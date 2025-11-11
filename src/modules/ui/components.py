@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Generator, List, Tuple
 
 import streamlit as st
+from langchain.messages import ToolCall
 
 from modules.chat.types import Interaction
 from modules.config.pricing import PricingCalculator
@@ -85,34 +86,30 @@ class ChatUI:
             st.markdown(content)
     
     @staticmethod
-    def display_tool_calls(tool_results: List[ToolResultInfo], in_chat_context: bool = True):
+    def display_tool_calls(tool_call: ToolCall, in_chat_context: bool = True, response: str = ""):
         """Display tool call executions in a visually distinct way
         
         Args:
-            tool_results: List of tool execution results
-            in_chat_context: If True, wrap in st.chat_message("assistant"). 
+            tool_call: The tool call execution result
+            in_chat_context: If True, wrap in st.chat_message("assistant").
                            If False, assumes already in a chat message context.
         """
-        if not tool_results:
+        if not tool_call:
             return
         
         def render_tools():
             st.markdown("🛠️ **Tool Calls Executed:**")
-            
-            for tool_result in tool_results:
-                tool_name = tool_result.get("name", "unknown")
-                tool_args = tool_result.get("arguments", {})
-                tool_output = tool_result.get("result", "")
-                
-                with st.expander(f"🔧 {tool_name}", expanded=True):
-                    # Display arguments
+
+            tool_name = tool_call.get("name", "unknown")
+            tool_args = tool_call.get("args", {})
+
+            with st.expander(f"🔧 {tool_name}", expanded=True):
                     if tool_args:
                         st.markdown("**Arguments:**")
                         st.json(tool_args)
                     
-                    # Display result
                     st.markdown("**Result:**")
-                    st.code(tool_output, language="json")
+                    st.code(response, language="json")
         
         if in_chat_context:
             with st.chat_message("assistant"):
