@@ -108,23 +108,3 @@ with chat_col:
             except Exception as e:
                 ChatUI.display_error(e, show_details=True)
 
-with raw_col:
-    st.header("🔍 Raw Message View")
-    st.caption("LangChain message structure")
-    
-    # Display raw messages from LangChain provider
-    messages = st.session_state.langchain_provider.get_messages()
-    if messages:
-        for idx, msg in enumerate(messages):
-            with st.expander(f"Message {idx + 1}: {type(msg).__name__}", expanded=False):
-                msg_data = {
-                    "type": type(msg).__name__,
-                    "content": msg.content if hasattr(msg, 'content') else None,
-                }
-                # Only add tool_calls if it's an AIMessage
-                if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls'):
-                    msg_data["tool_calls"] = msg.tool_calls if msg.tool_calls else None
-                st.json(msg_data)
-    else:
-        st.info("No messages yet. Start a conversation!")
-
