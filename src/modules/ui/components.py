@@ -7,14 +7,14 @@ from langchain.messages import ToolCall
 from modules.chat.types import Interaction
 from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
-from modules.providers.types import EcologicalImpact, ToolResultInfo
+from modules.providers.types import EcologicalImpact
 
 
 class Sidebar:
     """Encapsulates sidebar UI components"""
     
     @staticmethod
-    def render() -> Tuple[str, str, str, bool, bool]:
+    def render() -> Tuple[str, str, str, bool]:
         """Render sidebar and return settings"""
         with st.sidebar:
             st.header("Settings")
@@ -59,12 +59,6 @@ class Sidebar:
                 help="Instructions that guide the assistant's behavior"
             )
             
-            # Stream toggle
-            stream = st.toggle(
-                "Stream responses", 
-                value=True,
-                help="Enable real-time streaming of responses"
-            )
             
             # Clear button
             clear_pressed = st.button(
@@ -73,7 +67,7 @@ class Sidebar:
                 use_container_width=True
             )
             
-            return provider, model, system_prompt, stream, clear_pressed
+            return provider, model, system_prompt, clear_pressed
 
 
 class ChatUI:

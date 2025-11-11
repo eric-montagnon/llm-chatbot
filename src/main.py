@@ -49,7 +49,7 @@ if "langchain_provider" not in st.session_state:
     st.session_state.langchain_provider = LangChainProvider()
     st.session_state.langchain_provider.set_system_prompt(Config.DEFAULT_SYSTEM_PROMPT)
 
-provider, model, system_prompt, stream, clear_pressed = Sidebar.render()
+provider, model, system_prompt, clear_pressed = Sidebar.render()
 
 if clear_pressed:
     st.session_state.langchain_provider.clear_history()
