@@ -134,7 +134,6 @@ class LangChainProvider:
                         self._messages.append(AIMessage(content=text))
                     else:
                         previous_message.content += text
-                print("Updated messages:", self._messages)
 
             if node == "tools":
                 previous_message = self._messages[-1] if self._messages else None
@@ -146,7 +145,6 @@ class LangChainProvider:
         if self.agent and self.current_thread_id:
             state = self.agent.get_state({"configurable": {"thread_id": self.current_thread_id}})
             self._messages = state.values.get("messages", [])
-            print("Final state after streaming:", self._messages)
 
     def get_messages(self) -> List[HumanMessage | AIMessage | SystemMessage]:
         return self._messages
