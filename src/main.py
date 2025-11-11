@@ -1,7 +1,10 @@
+from time import sleep
+
 import streamlit as st
 
 from modules.chat import ChatManager
 from modules.config import Config
+from modules.providers.langchain_class import LangChainProvider
 from modules.ui import ChatUI, RawMessageViewer, Sidebar
 
 st.set_page_config(
@@ -17,6 +20,8 @@ if "chat_manager" not in st.session_state:
     st.session_state.chat_manager.update_system_prompt(Config.DEFAULT_SYSTEM_PROMPT)
     # Store tool results associated with message indices
     st.session_state.tool_results_map = {}
+    # Initialize LangChain provider
+    st.session_state.langchain_provider = LangChainProvider()
 
 provider, model, system_prompt, stream, clear_pressed = Sidebar.render()
 
@@ -32,6 +37,31 @@ chat_col, raw_col = st.columns([1, 1], gap="medium")
 
 with chat_col:
     st.header("📨 Chat Interface")
+    
+    # Add test button for LangChain agent
+    if st.button("🧪 Test LangChain Agent"):
+        with st.chat_message("assistant"):
+            try:
+                # Test with generic information
+                user_query = "What's the weather in Paris?"
+                
+                placeholder = st.empty()
+                
+                st.session_state.langchain_provider.set_model(model)
+                
+                response_stream = st.session_state.langchain_provider.get_response_stream(
+                    user_query, 
+                    thread_id="test_thread"
+                )
+                for chunk in response_stream:
+                    placeholder.markdown(st.session_state.langchain_provider.get_messages())
+
+                sleep(0.01)  # Simulate processing delay
+                placeholder.markdown(st.session_state.langchain_provider.get_messages())
+
+                st.success(f"✅ LangChain agent test complete!")
+            except Exception as e:
+                st.error(f"❌ Error testing LangChain agent: {str(e)}")
     
     # Display existing messages
     display_messages = st.session_state.chat_manager.get_display_messages()
