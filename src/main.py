@@ -24,8 +24,8 @@ def show_message(message: HumanMessage | AIMessage | SystemMessage, messages: Li
                     if isinstance(msg, ToolMessage) and hasattr(msg, 'tool_call_id') and msg.tool_call_id == tool_call.get('id'):
                         tool_response = msg.content if isinstance(msg.content, str) else str(msg.content)
                         break
-                
-                ChatUI.display_tool_calls(tool_call, in_chat_context=False, response=tool_response)
+
+                ChatUI.display_tool_calls(message, response=tool_response)
 
         if message.content:
             content = message.content if isinstance(message.content, str) else str(message.content)

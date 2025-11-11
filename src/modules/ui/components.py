@@ -1,7 +1,7 @@
 from typing import Generator, Tuple
 
 import streamlit as st
-from langchain.messages import AIMessage, ToolCall
+from langchain.messages import AIMessage
 
 from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
@@ -109,43 +109,68 @@ class ChatUI:
                         input_tokens=input_tokens,
                         output_tokens=output_tokens
                     ) if model_name else None
+
+                    if cost is not None:
+                        formatted_cost = PricingCalculator.format_cost(cost)
+                        st.markdown(f"**💰 {formatted_cost}**")
+                    st.caption(f"🔼 {input_tokens:,} in")
+                    st.caption(f"🔽 {output_tokens:,} out")
+    
+    @staticmethod
+    def display_tool_calls(message: AIMessage, response: str = ""):
+        """Display tool call executions with pricing information
+        
+        Args:
+            message: The AIMessage object containing tool calls, usage metadata, and response metadata
+            response: The tool response/result to display
+        """
+        if not message.tool_calls:
+            return
+        
+        with st.chat_message("assistant"):
+            # Create columns: main content (wider) and cost info (narrower)
+            col1, col2 = st.columns([4, 1])
+            
+            with col1:
+                st.markdown("🛠️ **Tool Calls Executed:**")
+                
+                for tool_call in message.tool_calls:
+                    tool_name = tool_call.get("name", "unknown")
+                    tool_args = tool_call.get("args", {})
+                    
+                    with st.expander(f"🔧 {tool_name}", expanded=True):
+                        if tool_args:
+                            st.markdown("**Arguments:**")
+                            st.json(tool_args)
+                        
+                        if response:
+                            st.markdown("**Result:**")
+                            st.code(response, language="json")
+            
+            with col2:
+                # Display token usage and cost if available
+                usage = message.usage_metadata
+                if usage:
+                    input_tokens = usage.get('input_tokens', 0)
+                    output_tokens = usage.get('output_tokens', 0)
+                    
+                    # Extract model from response_metadata
+                    response_metadata = message.response_metadata
+                    model_name = response_metadata.get('model_name', '')
+                    
+                    # Calculate cost using just the model name
+                    cost = PricingCalculator.calculate_cost(
+                        model=model_name,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens
+                    ) if model_name else None
                     
                     # Display cost information
                     if cost is not None:
                         formatted_cost = PricingCalculator.format_cost(cost)
                         st.markdown(f"**💰 {formatted_cost}**")
-    
-    @staticmethod
-    def display_tool_calls(tool_call: ToolCall, in_chat_context: bool = True, response: str = ""):
-        """Display tool call executions in a visually distinct way
-        
-        Args:
-            tool_call: The tool call execution result
-            in_chat_context: If True, wrap in st.chat_message("assistant").
-                           If False, assumes already in a chat message context.
-        """
-        if not tool_call:
-            return
-        
-        def render_tools():
-            st.markdown("🛠️ **Tool Calls Executed:**")
-
-            tool_name = tool_call.get("name", "unknown")
-            tool_args = tool_call.get("args", {})
-
-            with st.expander(f"🔧 {tool_name}", expanded=True):
-                    if tool_args:
-                        st.markdown("**Arguments:**")
-                        st.json(tool_args)
-                    
-                    st.markdown("**Result:**")
-                    st.code(response, language="json")
-        
-        if in_chat_context:
-            with st.chat_message("assistant"):
-                render_tools()
-        else:
-            render_tools()
+                    st.caption(f"🔼 {input_tokens:,} in")
+                    st.caption(f"🔽 {output_tokens:,} out")
     
     @staticmethod
     def display_streaming_response(response_generator: Generator[str, None, None]) -> str:
