@@ -5,8 +5,10 @@ from langchain.messages import (AIMessage, HumanMessage, SystemMessage,
                                 ToolMessage)
 
 from modules.config import Config
+from modules.config.pricing import PricingCalculator
 from modules.providers.langchain_class import LangChainProvider
 from modules.ui import ChatUI, Sidebar
+from modules.ui.components import calculate_total_cost, calculate_total_impact
 
 
 def show_message(message: HumanMessage | AIMessage | SystemMessage, messages: List[HumanMessage | AIMessage | SystemMessage]) -> None:
@@ -40,8 +42,18 @@ st.set_page_config(
     page_icon="💬", 
     layout="centered"
 )
-st.title("💬 LLM Chatbot")
-st.caption("Chat with your AI assistant")
+
+# Title and totals display
+col1, col2, col3 = st.columns([2, 1, 1])
+
+with col1:
+    st.title("💬 LLM Chatbot")
+
+with col2:
+    st.markdown("### 💰 Total Cost")
+    
+with col3:
+    st.markdown("### 🌍 Total Impact")
 
 if "langchain_provider" not in st.session_state:
     # Initialize LangChain provider
@@ -57,6 +69,31 @@ if clear_pressed:
 st.session_state.langchain_provider.set_system_prompt(system_prompt)
 
 display_messages: List[HumanMessage | AIMessage | SystemMessage] = st.session_state.langchain_provider.get_messages()
+
+# Calculate and display totals
+total_cost = calculate_total_cost(display_messages)
+total_impact = calculate_total_impact(display_messages)
+
+# Update the total cost and impact display
+col1, col2, col3 = st.columns([3, 1, 1])
+
+with col1:
+    pass  # Title already displayed above
+
+with col2:
+    if total_cost > 0:
+        formatted_cost = PricingCalculator.format_cost(total_cost)
+        st.caption(formatted_cost)
+    else:
+        st.caption("$0.00")
+
+with col3:
+    if total_impact:
+        st.caption(f"⚡ {total_impact['energy_mwh']:.2f} mWh | 🌍 {total_impact['gwp_g']:.2f} g CO₂eq | 💧 {total_impact['water_ml']:.2f} mL")
+    else:
+        st.caption("_No data yet_")
+
+st.markdown("---")  # Divider between header and chat
 
 show_messages_in_UI(display_messages)
 

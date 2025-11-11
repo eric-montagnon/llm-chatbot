@@ -1,7 +1,7 @@
-from typing import Generator, Optional, Tuple
+from typing import Generator, List, Optional, Tuple
 
 import streamlit as st
-from langchain.messages import AIMessage
+from langchain.messages import AIMessage, HumanMessage, SystemMessage
 
 from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
@@ -62,6 +62,86 @@ def format_impact_compact(impacts: Impacts) -> str:
     water_ml = water_l * 1000  # Convert L to mL
     
     return f"⚡ {energy_mwh:.2f} mWh | 🌍 {gwp_g:.2f} g CO₂eq | 💧 {water_ml:.2f} mL"
+
+
+def calculate_total_cost(messages: List[AIMessage | HumanMessage | SystemMessage]) -> float:
+    """Calculate total cost from all AI messages in the conversation.
+    
+    Args:
+        messages: List of conversation messages
+        
+    Returns:
+        Total cost in USD
+    """
+    total_cost = 0.0
+    
+    for message in messages:
+        if isinstance(message, AIMessage):
+            usage = message.usage_metadata
+            if usage:
+                input_tokens = usage.get('input_tokens', 0)
+                output_tokens = usage.get('output_tokens', 0)
+                response_metadata = message.response_metadata
+                model_name = response_metadata.get('model_name', '')
+                
+                if model_name:
+                    cost = PricingCalculator.calculate_cost(
+                        model=model_name,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens
+                    )
+                    if cost is not None:
+                        total_cost += cost
+    
+    return total_cost
+
+
+def calculate_total_impact(messages: List[AIMessage | HumanMessage | SystemMessage]) -> Optional[dict]:
+    """Calculate total environmental impact from all AI messages in the conversation.
+    
+    Args:
+        messages: List of conversation messages
+        
+    Returns:
+        Dictionary with total energy (mWh), gwp (g CO2eq), and water (mL), or None if no impact data
+    """
+    total_energy_kwh = 0.0
+    total_gwp_kg = 0.0
+    total_water_l = 0.0
+    has_impact = False
+    
+    for message in messages:
+        if isinstance(message, AIMessage):
+            usage = message.usage_metadata
+            if usage:
+                input_tokens = usage.get('input_tokens', 0)
+                output_tokens = usage.get('output_tokens', 0)
+                response_metadata = message.response_metadata
+                model_name = response_metadata.get('model_name', '')
+                
+                if model_name:
+                    impacts = compute_impact_for_message(model_name, input_tokens, output_tokens)
+                    if impacts:
+                        has_impact = True
+                        # Helper function to get mean value
+                        def get_mean_value(val):
+                            if hasattr(val, 'mean'):
+                                return val.mean
+                            else:
+                                return val
+                        
+                        total_energy_kwh += get_mean_value(impacts.energy.value)
+                        total_gwp_kg += get_mean_value(impacts.gwp.value)
+                        total_water_l += get_mean_value(impacts.wcf.value)
+    
+    if not has_impact:
+        return None
+    
+    return {
+        'energy_mwh': total_energy_kwh * 1000,  # Convert kWh to mWh
+        'gwp_g': total_gwp_kg * 1000,  # Convert kg to g
+        'water_ml': total_water_l * 1000  # Convert L to mL
+    }
 
 
 
