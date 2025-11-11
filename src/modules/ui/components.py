@@ -1,10 +1,68 @@
-from typing import Generator, Tuple
+from typing import Generator, Optional, Tuple
 
 import streamlit as st
 from langchain.messages import AIMessage
 
 from modules.config.pricing import PricingCalculator
 from modules.config.settings import Config
+from modules.ecologits.compute_impact import compute_generation_impact
+from modules.ecologits.impacts.modeling import Impacts
+
+
+def compute_impact_for_message(model_name: str, input_tokens: int, output_tokens: int) -> Optional[Impacts]:
+    """Compute environmental impact for a message.
+    
+    Args:
+        model_name: The model name from the API
+        input_tokens: Number of input tokens
+        output_tokens: Number of output tokens
+        
+    Returns:
+        Impacts object or None if model not supported
+    """
+    try:
+        return compute_generation_impact(
+            model_name=model_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens
+        )
+    except (ValueError, KeyError):
+        # Model not found in impact database
+        return None
+
+
+def format_impact_compact(impacts: Impacts) -> str:
+    """Format impact as a compact string for display (always shows mean value).
+    
+    Args:
+        impacts: Impacts object from compute_generation_impact
+        
+    Returns:
+        Compact formatted string with mean values
+    """
+    # Helper function to get mean value
+    def get_mean_value(val):
+        if hasattr(val, 'mean'):
+            # It's a RangeValue, use mean
+            return val.mean
+        else:
+            # It's a simple value
+            return val
+    
+    # Format energy in mWh for readability
+    energy_kwh = get_mean_value(impacts.energy.value)
+    energy_mwh = energy_kwh * 1000  # Convert kWh to mWh
+    
+    # Format GWP in g for readability
+    gwp_kg = get_mean_value(impacts.gwp.value)
+    gwp_g = gwp_kg * 1000  # Convert kg to g
+    
+    # Format water in mL for readability
+    water_l = get_mean_value(impacts.wcf.value)
+    water_ml = water_l * 1000  # Convert L to mL
+    
+    return f"⚡ {energy_mwh:.2f} mWh | 🌍 {gwp_g:.2f} g CO₂eq | 💧 {water_ml:.2f} mL"
+
 
 
 class Sidebar:
@@ -84,8 +142,8 @@ class ChatUI:
             message: The AIMessage object containing content, usage metadata, and response metadata
         """
         with st.chat_message("assistant"):
-            # Create columns: main content (wider) and cost info (narrower)
-            col1, col2 = st.columns([4, 1])
+            # Create columns: main content (wider), cost info, and ecological impact
+            col1, col2, col3 = st.columns([4, 1, 1])
             
             with col1:
                 # Display the message content
@@ -115,6 +173,24 @@ class ChatUI:
                         st.markdown(f"**💰 {formatted_cost}**")
                     st.caption(f"🔼 {input_tokens:,} in")
                     st.caption(f"🔽 {output_tokens:,} out")
+            
+            with col3:
+                # Display environmental impact in third column
+                usage = message.usage_metadata
+                if usage:
+                    input_tokens = usage.get('input_tokens', 0)
+                    output_tokens = usage.get('output_tokens', 0)
+                    response_metadata = message.response_metadata
+                    model_name = response_metadata.get('model_name', '')
+                    
+                    if model_name:
+                        impacts = compute_impact_for_message(model_name, input_tokens, output_tokens)
+                        if impacts:
+                            st.markdown("**🌍 Impact**")
+                            impact_str = format_impact_compact(impacts)
+                            st.caption(impact_str)
+                        else:
+                            st.caption("_Impact data not available_")
     
     @staticmethod
     def display_tool_calls(message: AIMessage, response: str = ""):
@@ -128,8 +204,8 @@ class ChatUI:
             return
         
         with st.chat_message("assistant"):
-            # Create columns: main content (wider) and cost info (narrower)
-            col1, col2 = st.columns([4, 1])
+            # Create columns: main content (wider), cost info, and ecological impact
+            col1, col2, col3 = st.columns([4, 1, 1])
             
             with col1:
                 st.markdown("🛠️ **Tool Calls Executed:**")
@@ -171,6 +247,24 @@ class ChatUI:
                         st.markdown(f"**💰 {formatted_cost}**")
                     st.caption(f"🔼 {input_tokens:,} in")
                     st.caption(f"🔽 {output_tokens:,} out")
+            
+            with col3:
+                # Display environmental impact in third column
+                usage = message.usage_metadata
+                if usage:
+                    input_tokens = usage.get('input_tokens', 0)
+                    output_tokens = usage.get('output_tokens', 0)
+                    response_metadata = message.response_metadata
+                    model_name = response_metadata.get('model_name', '')
+                    
+                    if model_name:
+                        impacts = compute_impact_for_message(model_name, input_tokens, output_tokens)
+                        if impacts:
+                            st.markdown("**🌍 Impact**")
+                            impact_str = format_impact_compact(impacts)
+                            st.caption(impact_str)
+                        else:
+                            st.caption("_Impact data not available_")
     
     @staticmethod
     def display_streaming_response(response_generator: Generator[str, None, None]) -> str:
