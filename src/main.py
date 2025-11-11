@@ -27,10 +27,9 @@ def show_message(message: HumanMessage | AIMessage | SystemMessage, messages: Li
                 
                 ChatUI.display_tool_calls(tool_call, in_chat_context=False, response=tool_response)
 
-        # Display message content
         if message.content:
             content = message.content if isinstance(message.content, str) else str(message.content)
-            st.markdown(content)
+            ChatUI.display_message("assistant", content)
 
 def show_messages_in_UI(messages: List[HumanMessage | AIMessage | SystemMessage]) -> None:
    for msg in messages:
@@ -73,38 +72,36 @@ with chat_col:
     user_input = st.chat_input("Type your message…")
     
     if user_input:
-        with st.chat_message("assistant"):
-            try:
-                placeholder = st.empty()
+        try:
+            placeholder = st.empty()
+            
+            st.session_state.langchain_provider.set_model(model)
+            
+            response_stream = st.session_state.langchain_provider.get_response_stream(
+                user_input, 
+                thread_id="main_thread"
+            )
+            
+            for message, metadata in response_stream:
+                # Get all messages since the last HumanMessage
+                all_messages = st.session_state.langchain_provider.get_messages()
                 
-                st.session_state.langchain_provider.set_model(model)
+                # Find the index of the last HumanMessage
+                last_human_idx = -1
+                for i in range(len(all_messages) - 1, -1, -1):
+                    if isinstance(all_messages[i], HumanMessage):
+                        last_human_idx = i
+                        break
                 
-                response_stream = st.session_state.langchain_provider.get_response_stream(
-                    user_input, 
-                    thread_id="main_thread"
-                )
+                # Get messages after the last HumanMessage
+                messages_to_display = all_messages[last_human_idx + 1:] if last_human_idx != -1 else []
                 
-                for message, metadata in response_stream:
-                    # Get all messages since the last HumanMessage
-                    all_messages = st.session_state.langchain_provider.get_messages()
-                    
-                    # Find the index of the last HumanMessage
-                    last_human_idx = -1
-                    for i in range(len(all_messages) - 1, -1, -1):
-                        if isinstance(all_messages[i], HumanMessage):
-                            last_human_idx = i
-                            break
-                    
-                    # Get messages after the last HumanMessage
-                    messages_to_display = all_messages[last_human_idx + 1:] if last_human_idx != -1 else []
-                    
-                    # Display all messages since last HumanMessage
-                    with placeholder.container():
-                        for msg in messages_to_display:
-                           show_message(msg, all_messages)
-                
-                st.rerun()
-                
-            except Exception as e:
-                ChatUI.display_error(e, show_details=True)
-
+                # Display all messages since last HumanMessage
+                with placeholder.container():
+                    for msg in messages_to_display:
+                        show_message(msg, all_messages)
+            
+            st.rerun()
+            
+        except Exception as e:
+            ChatUI.display_error(e, show_details=True)
