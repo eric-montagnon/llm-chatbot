@@ -3,8 +3,8 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from ecologits.exceptions import ModelingError
-from ecologits.utils.range_value import ValueOrRange
+from modules.ecologits.exceptions import ModelingError
+from modules.ecologits.range_value import ValueOrRange
 
 Impact = TypeVar("Impact", bound="BaseImpact")
 

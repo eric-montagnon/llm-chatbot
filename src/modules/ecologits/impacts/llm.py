@@ -1,9 +1,10 @@
 import math
 from typing import Any, Optional, Union, cast
 
-from ecologits.impacts.dag import DAG
-from ecologits.impacts.modeling import GWP, PE, WCF, ADPe, Embodied, Energy, Impacts, Usage
-from ecologits.utils.range_value import RangeValue, ValueOrRange
+from modules.ecologits.impacts.dag import DAG
+from modules.ecologits.impacts.modeling import (GWP, PE, WCF, ADPe, Embodied,
+                                                Energy, Impacts, Usage)
+from modules.ecologits.range_value import RangeValue, ValueOrRange
 
 MODEL_QUANTIZATION_BITS = 16
 
