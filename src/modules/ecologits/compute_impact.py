@@ -165,16 +165,12 @@ def compute_generation_impact(
     location = get_server_location(provider)
     mix = electricity_mix[location]
     
-    # If no latency provided, use infinity (will be calculated from model)
-    if request_latency is None:
-        request_latency = math.inf
-    
     # Compute impacts
     impacts = compute_llm_impacts(
         model_active_parameter_count=active_params,
         model_total_parameter_count=total_params,
         output_token_count=float(output_tokens),
-        request_latency=request_latency,
+        request_latency=0.1,
         if_electricity_mix_adpe=mix['adpe'],
         if_electricity_mix_pe=mix['pe'],
         if_electricity_mix_gwp=mix['gwp'],
