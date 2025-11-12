@@ -1,4 +1,4 @@
-from typing import Generator, List, Optional, Tuple
+from typing import Any, Generator, List, Optional, Tuple
 
 import streamlit as st
 from langchain.messages import AIMessage, HumanMessage, SystemMessage
@@ -41,13 +41,13 @@ def format_impact_compact(impacts: Impacts) -> str:
         Compact formatted string with mean values
     """
     # Helper function to get mean value
-    def get_mean_value(val):
+    def get_mean_value(val: Any) -> float:
         if hasattr(val, 'mean'):
             # It's a RangeValue, use mean
-            return val.mean
+            return float(val.mean)
         else:
             # It's a simple value
-            return val
+            return float(val)
     
     # Format energy in mWh for readability
     energy_kwh = get_mean_value(impacts.energy.value)
@@ -96,7 +96,7 @@ def calculate_total_cost(messages: List[AIMessage | HumanMessage | SystemMessage
     return total_cost
 
 
-def calculate_total_impact(messages: List[AIMessage | HumanMessage | SystemMessage]) -> Optional[dict]:
+def calculate_total_impact(messages: List[AIMessage | HumanMessage | SystemMessage]) -> Optional[dict[str, float]]:
     """Calculate total environmental impact from all AI messages in the conversation.
     
     Args:
@@ -124,11 +124,11 @@ def calculate_total_impact(messages: List[AIMessage | HumanMessage | SystemMessa
                     if impacts:
                         has_impact = True
                         # Helper function to get mean value
-                        def get_mean_value(val):
+                        def get_mean_value(val: Any) -> float:
                             if hasattr(val, 'mean'):
-                                return val.mean
+                                return float(val.mean)
                             else:
-                                return val
+                                return float(val)
                         
                         total_energy_kwh += get_mean_value(impacts.energy.value)
                         total_gwp_kg += get_mean_value(impacts.gwp.value)
