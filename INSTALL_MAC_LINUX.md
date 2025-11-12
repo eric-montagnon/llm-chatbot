@@ -4,7 +4,7 @@ This guide covers installation and setup for macOS and Linux systems.
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python 3.13 or higher
 - pip (Python package installer)
 - API keys for the providers you want to use:
   - OpenAI API key (for OpenAI models)
@@ -112,7 +112,7 @@ streamlit run src/app.py --server.runOnSave true
 3. **Type checking errors**
 
    - Make sure you're running Pyright from the project root
-   - Verify Python version: `python --version` (should be 3.9+)
+   - Verify Python version: `python --version` (should be 3.13+)
    - Check virtual environment is activated
 
 4. **Import errors**
@@ -130,7 +130,7 @@ streamlit run src/app.py --server.runOnSave true
 
 **Linux:**
 
-- Make sure Python 3.9+ is installed:
+- Make sure Python 3.13+ is installed:
   ```bash
   python3 --version
   ```

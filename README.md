@@ -21,7 +21,7 @@ Choose your platform for detailed installation instructions:
 
 ### Prerequisites
 
-- Python 3.9 or higher
+- Python 3.13 or higher
 - pip (Python package installer)
 - API keys for the providers you want to use:
   - OpenAI API key (for OpenAI models)
@@ -45,7 +45,7 @@ The project includes type checking configuration in two files:
 - `pyrightconfig.json` - Main Pyright configuration
 - `pyproject.toml` - Python project configuration including Pyright settings
 
-Both configurations are set to use Python 3.9+ and check the `src` directory.
+Both configurations are set to use Python 3.13+ and check the `src` directory.
 
 ## Usage
 
@@ -80,7 +80,7 @@ For detailed type checking instructions for your platform:
 The type checking is configured with:
 
 - **Type Checking Mode**: Standard
-- **Python Version**: 3.9+
+- **Python Version**: 3.13+
 - **Included Paths**: `src/**/*.py`
 - **Excluded Paths**: `__pycache__`, `.venv`, `node_modules`, etc.
 
@@ -147,7 +147,7 @@ For platform-specific troubleshooting, please refer to:
 3. **Type checking errors**
 
    - Make sure you're running Pyright from the project root
-   - Verify Python version: `python --version` (should be 3.9+)
+   - Verify Python version: `python --version` (should be 3.13+)
    - Check virtual environment is activated
 
 4. **Import errors**
