@@ -1,11 +1,11 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
   "include": ["src/**/*.py"],
   "exclude": [
     "**/node_modules",
     "**/__pycache__",
+    "**/ecologits/data",
+    "**/ecologits/impacts",
     ".git",
-    ".venv",
     "venv",
     "env",
     "build",
@@ -17,7 +17,7 @@
   "pythonVersion": "3.13",
   "pythonPlatform": "All",
   "venvPath": ".",
-  "venv": ".venv",
+  "venv": "venv",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
   "reportUnusedImport": true,
@@ -62,6 +62,5 @@
   "reportUnsupportedDunderAll": "warning",
   "reportUnusedCoroutine": "error",
   "reportUnnecessaryTypeIgnoreComment": "information",
-  "reportMatchNotExhaustive": "warning",
-  "reportShadowedImports": "warning"
+  "reportMatchNotExhaustive": "warning"
 }
