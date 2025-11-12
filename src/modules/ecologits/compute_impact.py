@@ -88,15 +88,26 @@ def get_model_parameters(model_data: Dict[str, Any]) -> tuple[ValueOrRange, Valu
     elif isinstance(params, dict):
         if 'total' in params and 'active' in params:
             # MoE model with total and active parameters
-            total = params['total']
-            active = params['active']
+            total_raw = params['total']
+            active_raw = params['active']
             
-            if isinstance(active, dict) and 'min' in active and 'max' in active:
-                active_range = RangeValue(min=active['min'], max=active['max'])
+            # Convert active to ValueOrRange
+            if isinstance(active_raw, dict) and 'min' in active_raw and 'max' in active_raw:
+                active_value: ValueOrRange = RangeValue(min=active_raw['min'], max=active_raw['max'])
+            elif isinstance(active_raw, (int, float)):
+                active_value = active_raw
             else:
-                active_range = active
+                raise ValueError(f"Unknown active parameter format: {active_raw}")
+            
+            # Convert total to ValueOrRange
+            if isinstance(total_raw, dict) and 'min' in total_raw and 'max' in total_raw:
+                total_value: ValueOrRange = RangeValue(min=total_raw['min'], max=total_raw['max'])
+            elif isinstance(total_raw, (int, float)):
+                total_value = total_raw
+            else:
+                raise ValueError(f"Unknown total parameter format: {total_raw}")
                 
-            return active_range, total
+            return active_value, total_value
         elif 'min' in params and 'max' in params:
             # Dense model with parameter range
             param_range = RangeValue(min=params['min'], max=params['max'])
