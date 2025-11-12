@@ -3,7 +3,6 @@ Compute environmental impact of LLM generation based on model, input tokens, and
 """
 import csv
 import json
-import math
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
