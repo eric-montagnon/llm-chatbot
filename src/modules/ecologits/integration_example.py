@@ -11,10 +11,13 @@ from pathlib import Path
 src_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(src_dir))
 
-from modules.ecologits.compute_impact import (compute_generation_impact)
+from typing import Dict, Union
+
+from modules.ecologits.compute_impact import compute_generation_impact
+from modules.ecologits.range_value import RangeValue
 
 
-def calculate_and_display_impact(model_name: str, prompt_tokens: int, completion_tokens: int):
+def calculate_and_display_impact(model_name: str, prompt_tokens: int, completion_tokens: int) -> Dict[str, Union[float, str]]:
     """
     Calculate and display environmental impact for a chatbot response.
     
@@ -36,26 +39,34 @@ def calculate_and_display_impact(model_name: str, prompt_tokens: int, completion
         gwp_kg_co2 = impacts.gwp.value
         water_liters = impacts.wcf.value
         
-        # Convert to more readable units if needed
-        if hasattr(energy_kwh, 'mean'):
-            energy_kwh = energy_kwh.mean
-        if hasattr(gwp_kg_co2, 'mean'):
-            gwp_kg_co2 = gwp_kg_co2.mean
-        if hasattr(water_liters, 'mean'):
-            water_liters = water_liters.mean
+        # Convert to numeric values if needed (handle RangeValue)
+        if isinstance(energy_kwh, RangeValue):
+            energy_val = energy_kwh.mean
+        else:
+            energy_val = float(energy_kwh)
+            
+        if isinstance(gwp_kg_co2, RangeValue):
+            gwp_val = gwp_kg_co2.mean
+        else:
+            gwp_val = float(gwp_kg_co2)
+            
+        if isinstance(water_liters, RangeValue):
+            water_val = water_liters.mean
+        else:
+            water_val = float(water_liters)
         
         # Convert kgCO2 to gCO2 for readability
-        gwp_g_co2 = gwp_kg_co2 * 1000
+        gwp_g_co2 = gwp_val * 1000
         
         return {
-            'energy_kwh': energy_kwh,
+            'energy_kwh': energy_val,
             'gwp_g_co2': gwp_g_co2,
-            'water_liters': water_liters,
+            'water_liters': water_val,
             'summary': (
                 f"🌍 Environmental Impact: "
                 f"{gwp_g_co2:.2f}g CO₂ | "
-                f"{energy_kwh*1000:.2f}Wh | "
-                f"{water_liters:.2f}L water"
+                f"{energy_val*1000:.2f}Wh | "
+                f"{water_val:.2f}L water"
             )
         }
     except ValueError as e:
