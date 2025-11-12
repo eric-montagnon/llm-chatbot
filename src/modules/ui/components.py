@@ -223,7 +223,7 @@ class ChatUI:
         """
         with st.chat_message("assistant"):
             # Create columns: main content (wider), cost info, and ecological impact
-            col1, col2, col3 = st.columns([4, 1, 1])
+            col1, col2, col3 = st.columns([6, 1, 1])
             
             with col1:
                 # Display the message content
@@ -285,7 +285,7 @@ class ChatUI:
         
         with st.chat_message("assistant"):
             # Create columns: main content (wider), cost info, and ecological impact
-            col1, col2, col3 = st.columns([4, 1, 1])
+            col1, col2, col3 = st.columns([6, 1, 1])
             
             with col1:
                 st.markdown("🛠️ **Tool Calls Executed:**")

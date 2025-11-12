@@ -40,11 +40,11 @@ def show_messages_in_UI(messages: List[HumanMessage | AIMessage | SystemMessage]
 st.set_page_config(
     page_title="LLM Chatbot", 
     page_icon="💬", 
-    layout="centered"
+    layout="wide"
 )
 
 # Title and totals display
-col1, col2, col3 = st.columns([2, 1, 1])
+col1, col2, col3 = st.columns([4, 1, 1])
 
 with col1:
     st.title("💬 LLM Chatbot")
@@ -83,15 +83,15 @@ with col1:
 with col2:
     if total_cost > 0:
         formatted_cost = PricingCalculator.format_cost(total_cost)
-        st.caption(formatted_cost)
+        st.markdown(formatted_cost)
     else:
-        st.caption("$0.00")
+        st.markdown("$0.00")
 
 with col3:
     if total_impact:
-        st.caption(f"⚡ {total_impact['energy_mwh']:.2f} mWh | 🌍 {total_impact['gwp_g']:.2f} g CO₂eq | 💧 {total_impact['water_ml']:.2f} mL")
+        st.markdown(f"⚡ {total_impact['energy_mwh']:.2f} mWh | 🌍 {total_impact['gwp_g']:.2f} g CO₂eq | 💧 {total_impact['water_ml']:.2f} mL")
     else:
-        st.caption("_No data yet_")
+        st.markdown("_No data yet_")
 
 st.markdown("---")  # Divider between header and chat
 
